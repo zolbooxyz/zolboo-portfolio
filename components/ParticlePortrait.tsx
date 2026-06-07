@@ -110,10 +110,10 @@ export default function ParticlePortrait({
       const baseY = Float32Array.from(posArr);
 
       const mat = new THREE.PointsMaterial({
-        size: 0.04,
+        size: 0.055,
         vertexColors: true,
         transparent: true,
-        opacity: 1,
+        opacity: 0.9,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       });

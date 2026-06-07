@@ -30,7 +30,7 @@ export default function About() {
 
               {/* neon particle portrait (falls back to monogram) */}
               <div className="mt-6 aspect-[4/5] w-full overflow-hidden rounded-3xl border border-line bg-surface/30">
-                <ParticlePortrait src="/portrait.png" invert threshold={0.13} cols={140}>
+                <ParticlePortrait src="/portrait.png" invert threshold={0.32} cols={84}>
                   <div className="flex h-full w-full items-center justify-center">
                     <span className="font-display text-7xl font-extrabold leading-none text-grad">
                       Z

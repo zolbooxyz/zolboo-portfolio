@@ -7,7 +7,6 @@ import { useLang } from "@/lib/LanguageContext";
 
 const links = [
   { id: "work", href: "#work" },
-  { id: "services", href: "#services" },
   { id: "journey", href: "#journey" },
   { id: "contact", href: "#contact" },
 ] as const;
@@ -42,12 +41,12 @@ export default function Nav() {
           <span className="h-2 w-2 animate-pulseGlow rounded-full bg-accent shadow-glow-sm" />
         </a>
 
-        <div className="hidden items-center gap-8 md:flex">
+        <div className="hidden items-center gap-7 md:flex">
           {links.map((l) => (
             <a
               key={l.id}
               href={l.href}
-              className="link-underline font-mono text-xs uppercase tracking-[0.18em] text-muted transition-colors hover:text-ink"
+              className="link-underline text-sm lowercase text-muted transition-colors hover:text-ink"
             >
               {t(content.nav[l.id])}
             </a>

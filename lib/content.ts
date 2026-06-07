@@ -4,10 +4,10 @@ type Bi = { mn: string; en: string };
 
 export const content = {
   nav: {
-    work: { mn: "Төслүүд", en: "Work" },
-    services: { mn: "Үйлчилгээ", en: "Services" },
-    journey: { mn: "Замнал", en: "Journey" },
-    contact: { mn: "Холбоо барих", en: "Contact" },
+    work: { mn: "ажлууд", en: "work" },
+    services: { mn: "үйлчилгээ", en: "services" },
+    journey: { mn: "замнал", en: "journey" },
+    contact: { mn: "холбоо", en: "say hi" },
   },
 
   hero: {
