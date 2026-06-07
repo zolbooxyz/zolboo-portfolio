@@ -45,6 +45,14 @@ export default function Hero() {
           <span className="font-mono text-xs tracking-wide text-muted">{t(h.status)}</span>
         </motion.div>
 
+        {/* greeting */}
+        <motion.p
+          variants={item}
+          className="mb-3 font-display text-xl font-medium text-muted sm:text-2xl"
+        >
+          {t(h.greeting)}
+        </motion.p>
+
         {/* name */}
         <motion.h1
           variants={item}

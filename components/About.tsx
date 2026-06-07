@@ -1,9 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { GraduationCap, Rocket } from "lucide-react";
 import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
 import Reveal from "./ui/Reveal";
+
+// three.js is heavy and the portrait is below the fold — load it client-side
+// in its own chunk so it stays off the initial critical path.
+const ParticlePortrait = dynamic(() => import("./ParticlePortrait"), { ssr: false });
 
 export default function About() {
   const { t } = useLang();
@@ -23,11 +28,15 @@ export default function About() {
                 </span>
               </div>
 
-              {/* monogram */}
-              <div className="mt-6 flex h-28 w-28 items-center justify-center rounded-3xl border border-line bg-surface/50">
-                <span className="font-display text-6xl font-extrabold leading-none text-grad">
-                  Z
-                </span>
+              {/* neon particle portrait (falls back to monogram) */}
+              <div className="mt-6 aspect-[4/5] w-full overflow-hidden rounded-3xl border border-line bg-surface/30">
+                <ParticlePortrait src="/portrait.png" invert threshold={0.13} cols={140}>
+                  <div className="flex h-full w-full items-center justify-center">
+                    <span className="font-display text-7xl font-extrabold leading-none text-grad">
+                      Z
+                    </span>
+                  </div>
+                </ParticlePortrait>
               </div>
 
               {/* availability */}

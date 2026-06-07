@@ -12,11 +12,12 @@ export const content = {
 
   hero: {
     status: { mn: "Шинэ төсөл хүлээж авч байна", en: "Available for new projects" },
+    greeting: { mn: "Сайн уу, би", en: "Hi, I'm" },
     name: "Zolboo",
     role: { mn: "Веб хөгжүүлэгч & Автоматжуулалт", en: "Web Developer & Automation" },
     tagline: {
-      mn: "Монголын бизнесүүдэд зориулж вэб болон автоматжуулалт хийдэг.",
-      en: "I build websites & automation for Mongolian businesses.",
+      mn: "Би вэбсайт, чатбот, автоматжуулалт бүтээдэг. Монголын бизнесүүдэд бодит үр дүн авчрах гэж хичээдэг.",
+      en: "I build websites, chatbots, and automations — and I care about getting real results for Mongolian businesses.",
     },
     ctaWork: { mn: "Төслүүдийг үзэх", en: "View my work" },
     ctaContact: { mn: "Холбогдох", en: "Get in touch" },
@@ -118,7 +119,7 @@ export const content = {
 
   services: {
     label: { mn: "Юу хийдэг вэ", en: "What I do" },
-    heading: { mn: "Үйлчилгээ & ур чадвар", en: "Services & skills" },
+    heading: { mn: "Чамд юугаар тусалж чадах вэ", en: "How I can help you" },
     items: [
       {
         id: "web",
