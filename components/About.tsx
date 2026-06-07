@@ -14,9 +14,33 @@ export default function About() {
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-12 md:grid-cols-[1fr_1.4fr] md:gap-16">
           <Reveal>
-            <span className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
-              {t(a.label)}
-            </span>
+            <div className="md:sticky md:top-28">
+              <div className="flex items-center gap-4">
+                <span className="font-mono text-xs text-muted/70">00</span>
+                <span className="h-px w-8 bg-accent/60" />
+                <span className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
+                  {t(a.label)}
+                </span>
+              </div>
+
+              {/* monogram */}
+              <div className="mt-6 flex h-28 w-28 items-center justify-center rounded-3xl border border-line bg-surface/50">
+                <span className="font-display text-6xl font-extrabold leading-none text-grad">
+                  Z
+                </span>
+              </div>
+
+              {/* availability */}
+              <div className="mt-6 inline-flex items-center gap-2.5 rounded-full border border-line bg-surface/60 px-4 py-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+                </span>
+                <span className="font-mono text-[11px] tracking-wide text-muted">
+                  {t(content.hero.status)}
+                </span>
+              </div>
+            </div>
           </Reveal>
 
           <div className="space-y-10">

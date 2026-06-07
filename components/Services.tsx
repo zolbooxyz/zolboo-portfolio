@@ -5,6 +5,7 @@ import { Code2, Workflow, Database, Sparkles } from "lucide-react";
 import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
 import Reveal from "./ui/Reveal";
+import SectionHeading from "./ui/SectionHeading";
 
 const icons = {
   web: Code2,
@@ -20,18 +21,9 @@ export default function Services() {
   return (
     <section id="services" className="relative px-5 py-24 sm:px-8">
       <div className="mx-auto max-w-6xl">
-        <Reveal>
-          <span className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
-            {t(s.label)}
-          </span>
-        </Reveal>
-        <Reveal delay={0.05}>
-          <h2 className="mt-4 font-display text-4xl font-bold tracking-tight sm:text-5xl">
-            {t(s.heading)}
-          </h2>
-        </Reveal>
+        <SectionHeading index="02" label={t(s.label)} title={t(s.heading)} />
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {s.items.map((svc, i) => {
             const Icon = icons[svc.id as keyof typeof icons];
             return (

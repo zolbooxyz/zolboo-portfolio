@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
 import Reveal from "./ui/Reveal";
+import SectionHeading from "./ui/SectionHeading";
 
 export default function Timeline() {
   const { t } = useLang();
@@ -12,21 +13,9 @@ export default function Timeline() {
   return (
     <section id="journey" className="relative px-5 py-24 sm:px-8">
       <div className="mx-auto max-w-6xl">
-        <Reveal>
-          <span className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
-            {t(j.label)}
-          </span>
-        </Reveal>
-        <Reveal delay={0.05}>
-          <h2 className="mt-4 font-display text-4xl font-bold tracking-tight sm:text-5xl">
-            {t(j.heading)}
-          </h2>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <p className="mt-4 max-w-xl text-muted">{t(j.sub)}</p>
-        </Reveal>
+        <SectionHeading index="03" label={t(j.label)} title={t(j.heading)} sub={t(j.sub)} />
 
-        <div className="relative mt-16 pl-8 sm:pl-10">
+        <div className="relative mt-14 pl-8 sm:pl-10">
           {/* vertical line */}
           <div className="absolute bottom-2 left-[7px] top-2 w-px bg-gradient-to-b from-accent/60 via-line to-transparent sm:left-[9px]" />
 
