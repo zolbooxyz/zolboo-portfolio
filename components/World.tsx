@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
 import { palette } from "@/lib/theme";
@@ -73,6 +77,18 @@ export default function World() {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     el.appendChild(renderer.domElement);
+
+    // ---- cinematic post-processing: bloom ----
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(
+      new THREE.Vector2(1, 1),
+      0.6, // strength
+      0.6, // radius
+      0.12 // threshold — keep point structure, glow the brightest
+    );
+    composer.addPass(bloom);
+    composer.addPass(new OutputPass());
 
     // ---- starfield ----
     const starN = 1400;
@@ -199,6 +215,8 @@ export default function World() {
       const h = el.clientHeight;
       if (!w || !h) return;
       renderer.setSize(w, h);
+      composer.setSize(w, h);
+      bloom.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     };
@@ -264,7 +282,7 @@ export default function World() {
         elLabel.style.zIndex = String(1000 - Math.round(dist * 10));
       });
 
-      renderer.render(scene, camera);
+      composer.render();
       raf = requestAnimationFrame(tick);
     };
     tick();
@@ -280,6 +298,7 @@ export default function World() {
       coreGeo.dispose();
       nodeGeo.dispose();
       linkGeo.dispose();
+      composer.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
     };
