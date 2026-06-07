@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import { Syne, Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/LanguageContext";
-import SmoothScroll from "@/lib/SmoothScroll";
 import Loader from "@/components/Loader";
 import Cursor from "@/components/Cursor";
-import ScrollProgress from "@/components/ScrollProgress";
 
 const display = Syne({
   subsets: ["latin"],
@@ -49,12 +47,9 @@ export default function RootLayout({
     <html lang="mn" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body className="grain bg-bg text-ink antialiased">
         <LanguageProvider>
-          <SmoothScroll>
-            <Loader />
-            <Cursor />
-            <ScrollProgress />
-            {children}
-          </SmoothScroll>
+          <Loader />
+          <Cursor />
+          {children}
         </LanguageProvider>
       </body>
     </html>
