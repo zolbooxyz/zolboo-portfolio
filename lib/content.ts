@@ -40,6 +40,15 @@ export const content = {
     now: { mn: "KnowHub — AI автоматжуулалт & SaaS бүтээж байна", en: "Building KnowHub — AI automation & SaaS" },
   },
 
+  statement: {
+    label: { mn: "Миний тухай нэг өгүүлбэр", en: "In one line" },
+    lead: { mn: "Сонирхлоо", en: "I turned" },
+    words: {
+      mn: ["ажил", "болгож,", "ажлаа", "адал", "явдал", "болгосон."],
+      en: ["curiosity", "into", "a", "craft —", "and", "an", "adventure."],
+    },
+  },
+
   projects: {
     label: { mn: "Сонгомол төслүүд", en: "Selected Work" },
     heading: { mn: "Сүүлийн үед бүтээсэн зүйлс", en: "Things I've built lately" },
