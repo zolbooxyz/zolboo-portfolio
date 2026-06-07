@@ -24,7 +24,7 @@ export default function Hero() {
   const h = content.hero;
 
   return (
-    <section id="top" className="relative flex min-h-[100svh] items-center px-5 pt-24 sm:px-8">
+    <section id="top" className="relative flex min-h-[100svh] items-center px-6 pt-24 sm:px-10 lg:px-16">
       {/* WebGL form, offset to the right so it sits behind/beside the copy */}
       <div className="absolute inset-y-0 right-0 w-full md:w-[60%]">
         <HeroCanvas />
@@ -34,7 +34,7 @@ export default function Hero() {
         variants={container}
         initial="hidden"
         animate="show"
-        className="pointer-events-none relative z-10 mx-auto w-full max-w-6xl"
+        className="pointer-events-none relative z-10 mx-auto w-full max-w-[1600px]"
       >
         {/* status */}
         <motion.div variants={item} className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-line bg-surface/60 px-4 py-1.5 backdrop-blur">

@@ -32,8 +32,8 @@ export default function Contact() {
   ];
 
   return (
-    <section id="contact" className="relative px-5 py-24 sm:px-8">
-      <div className="mx-auto max-w-6xl">
+    <section id="contact" className="relative px-6 py-28 sm:px-10 sm:py-36 lg:px-16">
+      <div className="mx-auto w-full max-w-[1600px]">
         <div className="relative overflow-hidden rounded-[2rem] border border-line bg-surface/40 p-8 sm:p-14">
           {/* glow */}
           <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent/10 blur-3xl" />

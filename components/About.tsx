@@ -15,8 +15,8 @@ export default function About() {
   const a = content.about;
 
   return (
-    <section className="relative px-5 py-24 sm:px-8">
-      <div className="mx-auto max-w-6xl">
+    <section className="relative px-6 py-28 sm:px-10 sm:py-36 lg:px-16">
+      <div className="mx-auto w-full max-w-[1600px]">
         <div className="grid gap-12 md:grid-cols-[1fr_1.4fr] md:gap-16">
           <Reveal>
             <div className="md:sticky md:top-28">

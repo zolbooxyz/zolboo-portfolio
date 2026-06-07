@@ -11,8 +11,8 @@ export default function Timeline() {
   const j = content.journey;
 
   return (
-    <section id="journey" className="relative px-5 py-24 sm:px-8">
-      <div className="mx-auto max-w-6xl">
+    <section id="journey" className="relative px-6 py-28 sm:px-10 sm:py-36 lg:px-16">
+      <div className="mx-auto w-full max-w-[1600px]">
         <SectionHeading index="03" label={t(j.label)} title={t(j.heading)} sub={t(j.sub)} />
 
         <div className="relative mt-14 pl-8 sm:pl-10">

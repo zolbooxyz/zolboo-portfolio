@@ -37,8 +37,16 @@ export default function Statement() {
   const all = [lead, ...words];
 
   return (
-    <section ref={ref} className="relative px-5 py-32 sm:px-8 sm:py-40">
-      <div className="mx-auto max-w-5xl">
+    <section ref={ref} className="relative overflow-hidden border-y border-line bg-bg-2/60 px-6 py-40 sm:px-10 sm:py-52 lg:px-16">
+      {/* full-bleed scene glow */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(80% 60% at 30% 50%, rgba(45,230,230,0.08), transparent 70%)",
+        }}
+      />
+      <div className="relative mx-auto w-full max-w-[1500px]">
         <div className="mb-8 flex items-center gap-4">
           <span className="h-px w-8 bg-accent/60" />
           <span className="font-mono text-xs uppercase tracking-[0.2em] text-accent">

@@ -19,8 +19,8 @@ export default function Services() {
   const s = content.services;
 
   return (
-    <section id="services" className="relative px-5 py-24 sm:px-8">
-      <div className="mx-auto max-w-6xl">
+    <section id="services" className="relative px-6 py-28 sm:px-10 sm:py-36 lg:px-16">
+      <div className="mx-auto w-full max-w-[1600px]">
         <SectionHeading index="02" label={t(s.label)} title={t(s.heading)} />
 
         {/* editorial list — each capability is a full-width row that lights up */}

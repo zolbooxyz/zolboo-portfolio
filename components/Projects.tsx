@@ -12,63 +12,38 @@ export default function Projects() {
   const p = content.projects;
 
   return (
-    <section id="work" className="relative px-5 py-24 sm:px-8">
-      <div className="mx-auto max-w-6xl">
+    <section id="work" className="relative px-6 py-28 sm:px-10 sm:py-36 lg:px-16">
+      <div className="mx-auto w-full max-w-[1600px]">
         <SectionHeading index="01" label={t(p.label)} title={t(p.heading)} sub={t(p.sub)} />
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2">
-          {p.items.map((proj, i) => {
-            const featured = i === 0;
-            return (
-              <Reveal
-                key={proj.id}
-                delay={0.05 * i}
-                className={featured ? "sm:col-span-2" : undefined}
-              >
-                <motion.article
-                  whileHover={{ y: -6 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 22 }}
-                  className={`group relative h-full overflow-hidden rounded-3xl border border-line bg-surface/50 transition-colors hover:border-accent/40 ${
-                    featured
-                      ? "p-8 sm:flex sm:items-end sm:justify-between sm:gap-10 sm:p-10"
-                      : "p-7"
-                  }`}
-                >
-                  {/* ghost index number */}
-                  <span className="pointer-events-none absolute right-5 top-3 select-none font-display text-6xl font-extrabold leading-none text-ink/[0.04] transition-colors duration-500 group-hover:text-accent/10 sm:text-7xl">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
+        {/* immersive full-width rows */}
+        <div className="mt-10 border-t border-line">
+          {p.items.map((proj, i) => (
+            <Reveal key={proj.id} delay={0.04 * i}>
+              <motion.article className="group relative overflow-hidden border-b border-line">
+                {/* accent wash sweeps in on hover */}
+                <span className="pointer-events-none absolute inset-0 origin-left scale-x-0 bg-accent/[0.04] transition-transform duration-500 ease-out group-hover:scale-x-100" />
 
-                  {/* diagonal sheen sweep on hover */}
-                  <span className="pointer-events-none absolute -inset-x-1 -top-1/2 h-[200%] -translate-x-full -rotate-12 bg-gradient-to-r from-transparent via-accent/10 to-transparent opacity-0 transition-all duration-700 ease-out group-hover:translate-x-full group-hover:opacity-100" />
+                {/* ghost index */}
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 select-none font-display text-[6rem] font-extrabold leading-none text-ink/[0.03] transition-colors duration-500 group-hover:text-accent/[0.07] sm:text-[9rem] lg:text-[12rem]">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
 
-                  {/* corner glow */}
-                  <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-accent/10 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100" />
-
-                  <div className="relative">
-                    <div className="mb-2 flex items-center gap-3">
-                      <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent">
+                <div className="relative grid grid-cols-1 gap-5 py-10 sm:grid-cols-[1fr_auto] sm:items-end sm:gap-10 lg:py-14">
+                  <div>
+                    <div className="mb-4 flex items-center gap-3">
+                      <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent">
                         {t(proj.category)}
                       </span>
                       <span className="font-mono text-xs text-muted">{proj.year}</span>
                     </div>
 
-                    <h3
-                      className={`flex items-start gap-2 font-display font-bold tracking-tight text-ink ${
-                        featured ? "text-3xl sm:text-4xl" : "text-2xl"
-                      }`}
-                    >
-                      <span className="bg-gradient-to-r from-accent to-accent bg-[length:0%_2px] bg-left-bottom bg-no-repeat pb-1 transition-[background-size] duration-500 ease-out group-hover:bg-[length:100%_2px]">
-                        {t(proj.title)}
-                      </span>
-                      <ArrowUpRight className="mt-1 h-5 w-5 shrink-0 text-muted transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent" />
+                    <h3 className="flex items-start gap-3 font-display text-4xl font-bold leading-[0.95] tracking-tight text-ink transition-transform duration-500 group-hover:translate-x-2 sm:text-6xl lg:text-7xl">
+                      <span>{t(proj.title)}</span>
+                      <ArrowUpRight className="mt-2 h-7 w-7 shrink-0 text-muted transition-all duration-300 group-hover:-translate-y-1 group-hover:translate-x-1 group-hover:text-accent lg:h-9 lg:w-9" />
                     </h3>
 
-                    <p
-                      className={`mt-3 text-sm leading-relaxed text-muted ${
-                        featured ? "max-w-md" : ""
-                      }`}
-                    >
+                    <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
                       {t(proj.desc)}
                     </p>
 
@@ -77,24 +52,20 @@ export default function Projects() {
                     ) : null}
                   </div>
 
-                  <div
-                    className={`relative flex flex-wrap gap-2 ${
-                      featured ? "mt-6 sm:mt-0 sm:shrink-0 sm:flex-col sm:items-end" : "mt-6"
-                    }`}
-                  >
+                  <div className="flex flex-wrap gap-2 sm:max-w-[14rem] sm:justify-end">
                     {proj.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="rounded-md border border-line bg-bg/40 px-2.5 py-1 font-mono text-[11px] text-ink/70 transition-colors group-hover:border-accent/20"
+                        className="rounded-md border border-line bg-bg/40 px-2.5 py-1 font-mono text-[11px] text-ink/70 transition-colors group-hover:border-accent/30"
                       >
                         {tag}
                       </span>
                     ))}
                   </div>
-                </motion.article>
-              </Reveal>
-            );
-          })}
+                </div>
+              </motion.article>
+            </Reveal>
+          ))}
         </div>
       </div>
     </section>
