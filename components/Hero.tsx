@@ -34,7 +34,7 @@ export default function Hero() {
         variants={container}
         initial="hidden"
         animate="show"
-        className="relative z-10 mx-auto w-full max-w-6xl"
+        className="pointer-events-none relative z-10 mx-auto w-full max-w-6xl"
       >
         {/* status */}
         <motion.div variants={item} className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-line bg-surface/60 px-4 py-1.5 backdrop-blur">
@@ -79,7 +79,7 @@ export default function Hero() {
         </motion.p>
 
         {/* CTAs */}
-        <motion.div variants={item} className="mt-10 flex flex-wrap items-center gap-4">
+        <motion.div variants={item} className="pointer-events-auto mt-10 flex flex-wrap items-center gap-4">
           <Magnetic>
             <a
               href="#work"
@@ -103,6 +103,14 @@ export default function Hero() {
         <motion.div variants={item} className="mt-12 flex items-center gap-2 font-mono text-xs text-muted">
           <MapPin className="h-3.5 w-3.5 text-accent" />
           {t(h.location)}
+        </motion.div>
+
+        {/* interactive hint */}
+        <motion.div
+          variants={item}
+          className="mt-4 font-mono text-[11px] tracking-wide text-accent/70 md:hidden lg:block"
+        >
+          <span className="animate-pulseGlow">{t(h.hint)}</span>
         </motion.div>
       </motion.div>
     </section>

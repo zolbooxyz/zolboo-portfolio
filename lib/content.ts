@@ -21,6 +21,7 @@ export const content = {
     },
     ctaWork: { mn: "Төслүүдийг үзэх", en: "View my work" },
     ctaContact: { mn: "Холбогдох", en: "Get in touch" },
+    hint: { mn: "↔ neon-г чирээд эргүүлээрэй", en: "↔ drag the neon to spin it" },
     location: { mn: "Улаанбаатар, Монгол", en: "Ulaanbaatar, Mongolia" },
   },
 
