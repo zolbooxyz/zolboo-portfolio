@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { BokehPass } from "three/examples/jsm/postprocessing/BokehPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { content } from "@/lib/content";
@@ -107,6 +108,9 @@ export default function World() {
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
+    // cinematic depth-of-field
+    const bokeh = new BokehPass(scene, camera, { focus: 8, aperture: 0.0009, maxblur: 0.008 });
+    composer.addPass(bokeh);
     const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.5, 0.2);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
@@ -241,6 +245,10 @@ export default function World() {
       );
       camera.lookAt(0, 0.2, 0);
 
+      // keep the figure in focus; everything else softly blurs
+      const focusDist = camera.position.distanceTo(tmp.set(0, 0.2, 0));
+      (bokeh.uniforms as Record<string, { value: number }>).focus.value = focusDist;
+
       // chapter overlays
       setOverlay(introRef.current, band(p, -1, 0, 0.08, 0.18));
       setOverlay(aboutRef.current, band(p, 0.18, 0.26, 0.4, 0.5));
@@ -298,6 +306,20 @@ export default function World() {
       {/* fixed cinematic stage */}
       <div className="fixed inset-0 select-none overflow-hidden bg-bg">
         <div ref={mountRef} className="absolute inset-0 h-full w-full" />
+
+        {/* cinematic vignette */}
+        <div
+          className="pointer-events-none absolute inset-0 z-[5]"
+          style={{ background: "radial-gradient(125% 110% at 50% 45%, transparent 52%, rgba(0,0,0,0.6) 100%)" }}
+        />
+        {/* film grain */}
+        <div
+          className="pointer-events-none absolute inset-0 z-[5] opacity-[0.07] mix-blend-overlay"
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          }}
+        />
 
         {/* top bar */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-6 py-5 sm:px-10">
