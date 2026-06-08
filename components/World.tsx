@@ -111,7 +111,7 @@ export default function World() {
     // cinematic depth-of-field
     const bokeh = new BokehPass(scene, camera, { focus: 8, aperture: 0.0009, maxblur: 0.008 });
     composer.addPass(bokeh);
-    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.5, 0.2);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.0, 0.5, 0.2);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
 
@@ -146,8 +146,8 @@ export default function World() {
     // glowing human figure
     let mixer: THREE.AnimationMixer | null = null;
     let figure: THREE.Group | null = null;
-    const figureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(palette.accent), wireframe: true, transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false });
-    new GLTFLoader().load("/models/soldier.glb", (gltf) => {
+    const figureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(palette.accent), wireframe: true, transparent: true, opacity: 0.85 });
+    new GLTFLoader().load("/models/figure.glb", (gltf) => {
       if (disposed) return;
       figure = gltf.scene;
       figure.traverse((o) => {
@@ -160,7 +160,7 @@ export default function World() {
       box.getSize(size);
       box.getCenter(center);
       const s = 3.4 / size.y;
-      figure.scale.set(s * 0.92, s, s * 0.92); // slightly slimmer silhouette
+      figure.scale.set(s * 0.82, s * 1.02, s * 0.82); // slim + slightly taller
       figure.position.set(-center.x * s, -center.y * s, -center.z * s);
       scene.add(figure);
       if (gltf.animations?.length) {
