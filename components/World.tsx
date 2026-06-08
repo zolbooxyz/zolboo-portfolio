@@ -111,7 +111,7 @@ export default function World() {
     // cinematic depth-of-field
     const bokeh = new BokehPass(scene, camera, { focus: 8, aperture: 0.0009, maxblur: 0.008 });
     composer.addPass(bokeh);
-    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.0, 0.5, 0.2);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.28, 0.35, 0.25);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
 
@@ -134,19 +134,10 @@ export default function World() {
     );
     scene.add(stars);
 
-    // faint energy core
-    const coreGeo = new THREE.IcosahedronGeometry(1.5, 12);
-    const core = new THREE.Points(
-      coreGeo,
-      new THREE.PointsMaterial({ color: new THREE.Color(palette.accent), size: 0.02, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false })
-    );
-    core.scale.setScalar(0.32);
-    scene.add(core);
-
-    // glowing human figure
+    // human figure
     let mixer: THREE.AnimationMixer | null = null;
     let figure: THREE.Group | null = null;
-    const figureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(palette.accent), wireframe: true, transparent: true, opacity: 0.85 });
+    const figureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(palette.accent), wireframe: true, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false });
     new GLTFLoader().load("/models/figure.glb", (gltf) => {
       if (disposed) return;
       figure = gltf.scene;
@@ -160,7 +151,7 @@ export default function World() {
       box.getSize(size);
       box.getCenter(center);
       const s = 3.4 / size.y;
-      figure.scale.set(s * 0.82, s * 1.02, s * 0.82); // slim + slightly taller
+      figure.scale.set(s * 1.02, s, s * 1.02); // broader, more masculine build
       figure.position.set(-center.x * s, -center.y * s, -center.z * s);
       scene.add(figure);
       if (gltf.animations?.length) {
@@ -227,7 +218,6 @@ export default function World() {
       lastT = now;
       if (mixer) mixer.update(delta);
       if (figure) figure.rotation.y += 0.0012;
-      core.rotation.y += 0.0016;
       stars.rotation.y += 0.0003;
 
       // scroll progress (eased)
@@ -288,7 +278,6 @@ export default function World() {
       window.removeEventListener("pointermove", onMouse);
       ro.disconnect();
       starGeo.dispose();
-      coreGeo.dispose();
       nodeGeo.dispose();
       composer.dispose();
       renderer.dispose();
