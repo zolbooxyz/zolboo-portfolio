@@ -8,6 +8,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { BokehPass } from "three/examples/jsm/postprocessing/BokehPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
 import { palette } from "@/lib/theme";
@@ -27,8 +28,9 @@ function band(p: number, a: number, b: number, c: number, d: number) {
 type Key = { p: number; r: number; th: number; ph: number };
 const KEYS: Key[] = [
   { p: 0.0, r: 7.0, th: 0.0, ph: 1.35 }, // intro — front of figure
-  { p: 0.3, r: 5.0, th: 0.8, ph: 1.12 }, // about — close, side
-  { p: 0.62, r: 12.5, th: 1.7, ph: 0.92 }, // works — pull back & up to reveal nodes
+  { p: 0.26, r: 5.0, th: 0.8, ph: 1.12 }, // about — close, side
+  { p: 0.46, r: 8.5, th: 1.5, ph: 1.05 }, // works — arrive at framing
+  { p: 0.8, r: 8.5, th: 1.5, ph: 1.05 }, // works — HOLD (camera frozen while projects assemble)
   { p: 1.0, r: 7.8, th: 2.7, ph: 1.3 }, // contact
 ];
 function sampleCam(p: number): { r: number; th: number; ph: number } {
@@ -62,6 +64,7 @@ export default function World() {
   const introRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
   const worksRef = useRef<HTMLDivElement>(null);
+  const worksItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const contactRef = useRef<HTMLDivElement>(null);
 
   const [fallback, setFallback] = useState(false);
@@ -82,7 +85,21 @@ export default function World() {
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
     el.appendChild(renderer.domElement);
+
+    // environment for metallic reflections + accent lighting
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environment = envTex;
+    scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+    const keyLight = new THREE.PointLight(new THREE.Color(palette.accent), 120, 0, 2);
+    keyLight.position.set(3, 4, 4);
+    scene.add(keyLight);
+    const rimLight = new THREE.PointLight(new THREE.Color(palette.accent2), 80, 0, 2);
+    rimLight.position.set(-4, 2, -3);
+    scene.add(rimLight);
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -115,8 +132,13 @@ export default function World() {
     // human figure
     let mixer: THREE.AnimationMixer | null = null;
     let figure: THREE.Group | null = null;
-    const figureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(palette.accent), wireframe: true, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false });
-    new GLTFLoader().load("/models/figure.glb", (gltf) => {
+    const figureMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0x0b0f14),
+      metalness: 1.0,
+      roughness: 0.26,
+      envMapIntensity: 1.15,
+    });
+    new GLTFLoader().load("/models/michelle.glb", (gltf) => {
       if (disposed) return;
       figure = gltf.scene;
       figure.traverse((o) => {
@@ -129,13 +151,16 @@ export default function World() {
       box.getSize(size);
       box.getCenter(center);
       const s = 3.4 / size.y;
-      figure.scale.set(s * 1.02, s, s * 1.02); // broader, more masculine build
+      figure.scale.setScalar(s); // natural proportions
       figure.position.set(-center.x * s, -center.y * s, -center.z * s);
       scene.add(figure);
+      // play the available clip (avoids an awkward T-pose), gently slowed
       if (gltf.animations?.length) {
         mixer = new THREE.AnimationMixer(figure);
-        const idle = gltf.animations.find((a) => /idle/i.test(a.name)) || gltf.animations[0];
-        mixer.clipAction(idle).play();
+        const clip = gltf.animations.find((a) => /idle/i.test(a.name)) || gltf.animations[0];
+        const action = mixer.clipAction(clip);
+        action.timeScale = 0.5;
+        action.play();
       }
     });
 
@@ -196,7 +221,7 @@ export default function World() {
       const py = -mouse.y * 0.3;
       // push the figure to one side so the chapter text gets a clear column
       let targetFrameX = 0;
-      if (p > 0.2 && p < 0.86) targetFrameX = 1.6; // about + works → figure left, cards right
+      if (p > 0.14 && p < 0.86) targetFrameX = 1.6; // about + works → figure left, cards right
       else if (p > 0.86) targetFrameX = -1.6; // contact → figure right, card left
       frameX += (targetFrameX - frameX) * 0.06;
       camera.position.set(
@@ -210,11 +235,29 @@ export default function World() {
       const focusDist = camera.position.distanceTo(tmp.set(0, 0.2, 0));
       (bokeh.uniforms as Record<string, { value: number }>).focus.value = focusDist;
 
-      // chapter overlays — each slides in from a different edge
-      setOverlay(introRef.current, band(p, -1, 0, 0.08, 0.18), 0, 36);
-      setOverlay(aboutRef.current, band(p, 0.18, 0.26, 0.4, 0.5), 140, 0); // from right
-      setOverlay(worksRef.current, band(p, 0.5, 0.58, 0.78, 0.86), 0, -70); // from top
-      setOverlay(contactRef.current, band(p, 0.86, 0.93, 1.1, 1.2), -140, 0); // from left
+      // chapter overlays
+      setOverlay(introRef.current, band(p, -1, 0, 0.06, 0.14), 0, 36);
+      setOverlay(aboutRef.current, band(p, 0.14, 0.2, 0.38, 0.46), 140, 0); // from right
+      setOverlay(worksRef.current, band(p, 0.46, 0.52, 0.84, 0.92), 0, 0); // panel fades; rows assemble
+      setOverlay(contactRef.current, band(p, 0.86, 0.92, 1.1, 1.2), -140, 0); // from left
+
+      // Works: while the camera is pinned, project rows fly in from all around
+      // and gather into the stacked list (scroll scrubs the assembly).
+      const wp = clamp01((p - 0.5) / 0.26); // assembly progress across the works hold
+      const items = worksItemRefs.current;
+      const n = items.length;
+      for (let i = 0; i < n; i++) {
+        const row = items[i];
+        if (!row) continue;
+        let ti = clamp01((wp - i * 0.07) / 0.5);
+        ti = ti * ti * (3 - 2 * ti); // smoothstep
+        const e = 1 - ti; // remaining offset
+        const ang = (i / n) * Math.PI * 2 + 0.7;
+        const ox = Math.cos(ang) * 460 * e;
+        const oy = Math.sin(ang) * 300 * e;
+        row.style.transform = `translate3d(${ox}px, ${oy}px, 0) scale(${0.8 + 0.2 * ti})`;
+        row.style.opacity = String(ti);
+      }
 
       composer.render();
       raf = requestAnimationFrame(tick);
@@ -229,6 +272,8 @@ export default function World() {
       window.removeEventListener("pointermove", onMouse);
       ro.disconnect();
       starGeo.dispose();
+      envTex.dispose();
+      pmrem.dispose();
       composer.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
@@ -296,15 +341,19 @@ export default function World() {
 
         {/* chapter: works (right column — project list) */}
         <div ref={worksRef} className="pointer-events-none absolute inset-0 flex items-center justify-end px-6 sm:px-14" style={{ opacity: 0 }}>
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-[2rem] bg-bg/40 px-7 py-8 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-[2rem] bg-bg/40 px-7 py-8 backdrop-blur-md">
             <PanelEyebrow>{t(content.projects.label)}</PanelEyebrow>
             <h2 className="font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">{t(content.projects.heading)}</h2>
             <div className="mt-5 border-t border-line">
               {content.projects.items.map((p, i) => (
                 <button
                   key={p.id}
+                  ref={(el) => {
+                    worksItemRefs.current[i] = el;
+                  }}
                   onClick={() => setSelected(p.id)}
-                  className="group flex w-full items-center gap-4 border-b border-line py-3 text-left transition-colors hover:bg-accent/[0.04]"
+                  className="group flex w-full items-center gap-4 border-b border-line py-3 text-left transition-colors will-change-transform hover:bg-accent/[0.04]"
+                  style={{ opacity: 0 }}
                 >
                   <span className="font-mono text-[10px] text-muted/60">{String(i + 1).padStart(2, "0")}</span>
                   <span className="min-w-0 flex-1">
