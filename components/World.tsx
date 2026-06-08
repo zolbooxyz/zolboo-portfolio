@@ -146,8 +146,8 @@ export default function World() {
     // glowing human figure
     let mixer: THREE.AnimationMixer | null = null;
     let figure: THREE.Group | null = null;
-    const figureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(palette.accent), wireframe: true, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false });
-    new GLTFLoader().load("/models/figure.glb", (gltf) => {
+    const figureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(palette.accent), wireframe: true, transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false });
+    new GLTFLoader().load("/models/soldier.glb", (gltf) => {
       if (disposed) return;
       figure = gltf.scene;
       figure.traverse((o) => {
@@ -160,7 +160,7 @@ export default function World() {
       box.getSize(size);
       box.getCenter(center);
       const s = 3.4 / size.y;
-      figure.scale.setScalar(s);
+      figure.scale.set(s * 0.92, s, s * 0.92); // slightly slimmer silhouette
       figure.position.set(-center.x * s, -center.y * s, -center.z * s);
       scene.add(figure);
       if (gltf.animations?.length) {
