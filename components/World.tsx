@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -11,9 +11,6 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
 import { palette } from "@/lib/theme";
-
-type NodeKind = "project";
-type WorldNode = { id: string; kind: NodeKind; pos: [number, number, number] };
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -49,18 +46,6 @@ function sampleCam(p: number): { r: number; th: number; ph: number } {
   return KEYS[KEYS.length - 1];
 }
 
-function fibSphere(n: number, radius: number): [number, number, number][] {
-  const out: [number, number, number][] = [];
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  for (let i = 0; i < n; i++) {
-    const y = 1 - (i / (n - 1)) * 2;
-    const r = Math.sqrt(1 - y * y);
-    const theta = golden * i;
-    out.push([Math.cos(theta) * r * radius, y * radius * 0.8, Math.sin(theta) * r * radius]);
-  }
-  return out;
-}
-
 function hasWebGL(): boolean {
   try {
     const c = document.createElement("canvas");
@@ -73,21 +58,14 @@ function hasWebGL(): boolean {
 export default function World() {
   const { t } = useLang();
 
-  const nodes = useMemo<WorldNode[]>(() => {
-    const items = content.projects.items;
-    const positions = fibSphere(items.length, 5.2);
-    return items.map((p, i) => ({ id: p.id, kind: "project", pos: positions[i] }));
-  }, []);
-
   const mountRef = useRef<HTMLDivElement>(null);
-  const labelRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const introRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
   const worksRef = useRef<HTMLDivElement>(null);
   const contactRef = useRef<HTMLDivElement>(null);
 
   const [fallback, setFallback] = useState(false);
-  const [selected, setSelected] = useState<WorldNode | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -161,21 +139,6 @@ export default function World() {
       }
     });
 
-    // project nodes
-    const nodeArr = new Float32Array(nodes.length * 3);
-    nodes.forEach((n, i) => {
-      nodeArr[i * 3] = n.pos[0];
-      nodeArr[i * 3 + 1] = n.pos[1];
-      nodeArr[i * 3 + 2] = n.pos[2];
-    });
-    const nodeGeo = new THREE.BufferGeometry();
-    nodeGeo.setAttribute("position", new THREE.BufferAttribute(nodeArr, 3));
-    const nodeMarkers = new THREE.Points(
-      nodeGeo,
-      new THREE.PointsMaterial({ color: new THREE.Color(palette.accent), size: 0.2, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false })
-    );
-    scene.add(nodeMarkers);
-
     // mouse parallax
     const mouse = { x: 0, y: 0 };
     const onMouse = (e: PointerEvent) => {
@@ -198,7 +161,6 @@ export default function World() {
     const ro = new ResizeObserver(resize);
     ro.observe(el);
 
-    const v = new THREE.Vector3();
     const tmp = new THREE.Vector3();
     const start = performance.now();
     let lastT = start;
@@ -234,8 +196,8 @@ export default function World() {
       const py = -mouse.y * 0.3;
       // push the figure to one side so the chapter text gets a clear column
       let targetFrameX = 0;
-      if (p > 0.2 && p < 0.5) targetFrameX = 1.6; // about → figure left, text right
-      else if (p > 0.86) targetFrameX = -1.6; // contact → figure right, text left
+      if (p > 0.2 && p < 0.86) targetFrameX = 1.6; // about + works → figure left, cards right
+      else if (p > 0.86) targetFrameX = -1.6; // contact → figure right, card left
       frameX += (targetFrameX - frameX) * 0.06;
       camera.position.set(
         c.r * Math.sin(c.ph) * Math.sin(c.th) + px,
@@ -254,26 +216,6 @@ export default function World() {
       setOverlay(worksRef.current, band(p, 0.5, 0.58, 0.78, 0.86), 0, -70); // from top
       setOverlay(contactRef.current, band(p, 0.86, 0.93, 1.1, 1.2), -140, 0); // from left
 
-      const worksVis = band(p, 0.5, 0.58, 0.82, 0.9);
-
-      // project node labels
-      const w = renderer.domElement.clientWidth;
-      const h = renderer.domElement.clientHeight;
-      nodes.forEach((n, i) => {
-        const lbl = labelRefs.current[i];
-        if (!lbl) return;
-        v.set(n.pos[0], n.pos[1], n.pos[2]).project(camera);
-        const behind = v.z > 1;
-        tmp.set(n.pos[0], n.pos[1], n.pos[2]);
-        const dist = camera.position.distanceTo(tmp);
-        const x = (v.x * 0.5 + 0.5) * w;
-        const y = (-v.y * 0.5 + 0.5) * h;
-        lbl.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
-        const op = behind ? 0 : worksVis * Math.max(0.3, Math.min(1, 16 / dist));
-        lbl.style.opacity = String(op);
-        lbl.style.pointerEvents = op > 0.4 ? "auto" : "none";
-      });
-
       composer.render();
       raf = requestAnimationFrame(tick);
     };
@@ -287,12 +229,11 @@ export default function World() {
       window.removeEventListener("pointermove", onMouse);
       ro.disconnect();
       starGeo.dispose();
-      nodeGeo.dispose();
       composer.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
     };
-  }, [nodes]);
+  }, []);
 
   if (fallback) return <WorldFallback />;
 
@@ -331,26 +272,6 @@ export default function World() {
           <LangToggle />
         </div>
 
-        {/* node labels */}
-        <div className="pointer-events-none absolute inset-0 z-10">
-          {nodes.map((n, i) => (
-            <button
-              key={n.id}
-              ref={(elr) => {
-                labelRefs.current[i] = elr;
-              }}
-              onClick={() => setSelected(n)}
-              className="group absolute left-0 top-0 flex items-center gap-2 whitespace-nowrap"
-              style={{ opacity: 0 }}
-            >
-              <span className="h-2 w-2 rounded-full bg-accent shadow-glow-sm transition-transform group-hover:scale-150" />
-              <span className="font-mono text-xs tracking-wide text-ink/80 transition-colors group-hover:text-accent">
-                {nodeTitle(n, t)}
-              </span>
-            </button>
-          ))}
-        </div>
-
         {/* chapter: intro */}
         <div ref={introRef} className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center" style={{ opacity: 1 }}>
           <p className="font-display text-sm text-muted">{t(content.hero.greeting)}</p>
@@ -373,11 +294,32 @@ export default function World() {
           </div>
         </div>
 
-        {/* chapter: works (heading; the nodes are the works) */}
-        <div ref={worksRef} className="pointer-events-none absolute inset-x-0 top-24 flex flex-col items-center text-center" style={{ opacity: 0 }}>
-          <PanelEyebrow>{t(content.projects.label)}</PanelEyebrow>
-          <h2 className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">{t(content.projects.heading)}</h2>
-          <p className="mt-2 font-mono text-[11px] text-accent/70">цэг дээр дарж дэлгэрэнгүйг үз</p>
+        {/* chapter: works (right column — project list) */}
+        <div ref={worksRef} className="pointer-events-none absolute inset-0 flex items-center justify-end px-6 sm:px-14" style={{ opacity: 0 }}>
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-[2rem] bg-bg/40 px-7 py-8 backdrop-blur-md">
+            <PanelEyebrow>{t(content.projects.label)}</PanelEyebrow>
+            <h2 className="font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">{t(content.projects.heading)}</h2>
+            <div className="mt-5 border-t border-line">
+              {content.projects.items.map((p, i) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelected(p.id)}
+                  className="group flex w-full items-center gap-4 border-b border-line py-3 text-left transition-colors hover:bg-accent/[0.04]"
+                >
+                  <span className="font-mono text-[10px] text-muted/60">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-display text-lg font-bold tracking-tight text-ink transition-colors group-hover:text-accent">
+                      {t(p.title)}
+                    </span>
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted">
+                      {t(p.category)} · {p.year}
+                    </span>
+                  </span>
+                  <span className="shrink-0 font-mono text-xs text-muted transition-all group-hover:translate-x-0.5 group-hover:text-accent">↗</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* chapter: contact (left column) */}
@@ -395,15 +337,10 @@ export default function World() {
         </div>
 
         {/* project detail panel */}
-        {selected && <DetailPanel node={selected} onClose={() => setSelected(null)} />}
+        {selected && <DetailPanel id={selected} onClose={() => setSelected(null)} />}
       </div>
     </>
   );
-}
-
-function nodeTitle(n: WorldNode, t: (v: { mn: string; en: string } | string) => string) {
-  const p = content.projects.items.find((x) => x.id === n.id);
-  return p ? t(p.title) : n.id;
 }
 
 function LangToggle() {
@@ -416,12 +353,12 @@ function LangToggle() {
   );
 }
 
-function DetailPanel({ node, onClose }: { node: WorldNode; onClose: () => void }) {
+function DetailPanel({ id, onClose }: { id: string; onClose: () => void }) {
   const { t } = useLang();
-  const p = content.projects.items.find((x) => x.id === node.id);
+  const p = content.projects.items.find((x) => x.id === id);
   if (!p) return null;
   return (
-    <div className="pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-full max-w-md flex-col justify-center border-l border-line bg-bg/85 p-8 backdrop-blur-xl sm:p-12">
+    <div className="pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-full max-w-md flex-col justify-center border-l border-line bg-bg/90 p-8 backdrop-blur-xl sm:p-12">
       <button onClick={onClose} className="absolute right-6 top-6 font-mono text-xs text-muted transition-colors hover:text-accent">✕ хаах</button>
       <PanelEyebrow>
         {t(p.category)} · {p.year}
