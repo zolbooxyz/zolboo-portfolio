@@ -6,6 +6,7 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
 import { palette } from "@/lib/theme";
@@ -70,6 +71,7 @@ export default function World() {
       return;
     }
 
+    let disposed = false;
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(new THREE.Color(palette.bg), 0.045);
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -83,9 +85,9 @@ export default function World() {
     composer.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(1, 1),
-      0.6, // strength
-      0.6, // radius
-      0.12 // threshold — keep point structure, glow the brightest
+      0.45, // strength
+      0.5, // radius
+      0.22 // threshold — keep structure, glow the brightest edges
     );
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
@@ -123,14 +125,50 @@ export default function World() {
       coreGeo,
       new THREE.PointsMaterial({
         color: new THREE.Color(palette.accent),
-        size: 0.03,
+        size: 0.022,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.45,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       })
     );
+    core.scale.setScalar(0.32);
     scene.add(core);
+
+    // ---- centerpiece: glowing wireframe human figure (GLTF) ----
+    let mixer: THREE.AnimationMixer | null = null;
+    let figure: THREE.Group | null = null;
+    const figureMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(palette.accent),
+      wireframe: true,
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    new GLTFLoader().load("/models/figure.glb", (gltf) => {
+      if (disposed) return;
+      figure = gltf.scene;
+      figure.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh) m.material = figureMat;
+      });
+      const box = new THREE.Box3().setFromObject(figure);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+      const s = 3.2 / size.y;
+      figure.scale.setScalar(s);
+      figure.position.set(-center.x * s, -center.y * s, -center.z * s);
+      scene.add(figure);
+      if (gltf.animations?.length) {
+        mixer = new THREE.AnimationMixer(figure);
+        const idle =
+          gltf.animations.find((a) => /idle/i.test(a.name)) || gltf.animations[0];
+        mixer.clipAction(idle).play();
+      }
+    });
 
     // ---- node markers (glowing points) ----
     const nodeGeo = new THREE.BufferGeometry();
@@ -227,10 +265,16 @@ export default function World() {
     const v = new THREE.Vector3();
     const tmp = new THREE.Vector3();
     const start = performance.now();
+    let lastT = start;
     let raf = 0;
 
     const tick = () => {
-      const time = (performance.now() - start) / 1000;
+      const now = performance.now();
+      const time = (now - start) / 1000;
+      const delta = Math.min(0.05, (now - lastT) / 1000);
+      lastT = now;
+      if (mixer) mixer.update(delta);
+      if (figure) figure.rotation.y += 0.0015;
 
       // breathing core
       for (let i = 0; i < corePos.count; i++) {
@@ -288,6 +332,9 @@ export default function World() {
     tick();
 
     return () => {
+      disposed = true;
+      mixer?.stopAllAction();
+      figureMat.dispose();
       cancelAnimationFrame(raf);
       renderer.domElement.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
