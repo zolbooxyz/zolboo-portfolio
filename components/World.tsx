@@ -203,12 +203,16 @@ export default function World() {
     const start = performance.now();
     let lastT = start;
     let raf = 0;
-    // smoothed scroll progress
+    // smoothed scroll progress + horizontal framing (shifts figure off-centre)
     let p = 0;
+    let frameX = 0;
 
-    const setOverlay = (ref: HTMLDivElement | null, o: number) => {
+    // o = visibility 0..1; (dx,dy) = slide-in offset direction (px) when hidden
+    const setOverlay = (ref: HTMLDivElement | null, o: number, dx = 0, dy = 0) => {
       if (!ref) return;
+      const e = 1 - o;
       ref.style.opacity = String(o);
+      ref.style.transform = `translate3d(${e * dx}px, ${e * dy}px, 0)`;
       ref.style.pointerEvents = o > 0.5 ? "auto" : "none";
     };
 
@@ -228,22 +232,27 @@ export default function World() {
       const c = sampleCam(p);
       const px = mouse.x * 0.4;
       const py = -mouse.y * 0.3;
+      // push the figure to one side so the chapter text gets a clear column
+      let targetFrameX = 0;
+      if (p > 0.2 && p < 0.5) targetFrameX = 1.6; // about → figure left, text right
+      else if (p > 0.86) targetFrameX = -1.6; // contact → figure right, text left
+      frameX += (targetFrameX - frameX) * 0.06;
       camera.position.set(
         c.r * Math.sin(c.ph) * Math.sin(c.th) + px,
         c.r * Math.cos(c.ph) + py,
         c.r * Math.sin(c.ph) * Math.cos(c.th)
       );
-      camera.lookAt(0, 0.2, 0);
+      camera.lookAt(frameX, 0.2, 0);
 
       // keep the figure in focus; everything else softly blurs
       const focusDist = camera.position.distanceTo(tmp.set(0, 0.2, 0));
       (bokeh.uniforms as Record<string, { value: number }>).focus.value = focusDist;
 
-      // chapter overlays
-      setOverlay(introRef.current, band(p, -1, 0, 0.08, 0.18));
-      setOverlay(aboutRef.current, band(p, 0.18, 0.26, 0.4, 0.5));
-      setOverlay(worksRef.current, band(p, 0.5, 0.58, 0.78, 0.86));
-      setOverlay(contactRef.current, band(p, 0.86, 0.93, 1.1, 1.2));
+      // chapter overlays — each slides in from a different edge
+      setOverlay(introRef.current, band(p, -1, 0, 0.08, 0.18), 0, 36);
+      setOverlay(aboutRef.current, band(p, 0.18, 0.26, 0.4, 0.5), 140, 0); // from right
+      setOverlay(worksRef.current, band(p, 0.5, 0.58, 0.78, 0.86), 0, -70); // from top
+      setOverlay(contactRef.current, band(p, 0.86, 0.93, 1.1, 1.2), -140, 0); // from left
 
       const worksVis = band(p, 0.5, 0.58, 0.82, 0.9);
 
@@ -352,11 +361,11 @@ export default function World() {
           <p className="mt-10 animate-pulseGlow font-mono text-[11px] tracking-wide text-accent/70">↓ доош гүйлгээрэй</p>
         </div>
 
-        {/* chapter: about */}
-        <div ref={aboutRef} className="pointer-events-none absolute inset-0 flex items-center justify-center px-6" style={{ opacity: 0 }}>
-          <div className="max-w-xl rounded-[2rem] bg-bg/40 px-8 py-10 text-center backdrop-blur-md">
+        {/* chapter: about (right column) */}
+        <div ref={aboutRef} className="pointer-events-none absolute inset-0 flex items-center justify-end px-6 sm:px-14" style={{ opacity: 0 }}>
+          <div className="max-w-sm rounded-[2rem] bg-bg/40 px-8 py-10 text-left backdrop-blur-md">
             <PanelEyebrow>{t(content.about.label)}</PanelEyebrow>
-            <p className="text-xl leading-relaxed text-ink/90 sm:text-2xl">{t(content.about.body)}</p>
+            <p className="text-lg leading-relaxed text-ink/90 sm:text-xl">{t(content.about.body)}</p>
             <div className="mt-6 space-y-1 font-mono text-xs text-muted">
               <div>{t(content.about.edu)}</div>
               <div className="text-accent/80">{t(content.about.now)}</div>
@@ -371,9 +380,9 @@ export default function World() {
           <p className="mt-2 font-mono text-[11px] text-accent/70">цэг дээр дарж дэлгэрэнгүйг үз</p>
         </div>
 
-        {/* chapter: contact */}
-        <div ref={contactRef} className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center" style={{ opacity: 0 }}>
-          <div className="rounded-[2rem] bg-bg/40 px-8 py-10 backdrop-blur-md">
+        {/* chapter: contact (left column) */}
+        <div ref={contactRef} className="pointer-events-none absolute inset-0 flex items-center justify-start px-6 text-left sm:px-14" style={{ opacity: 0 }}>
+          <div className="max-w-sm rounded-[2rem] bg-bg/40 px-8 py-10 backdrop-blur-md">
             <PanelEyebrow>{t(content.contact.label)}</PanelEyebrow>
             <h2 className="font-display text-4xl font-bold tracking-tight text-grad sm:text-6xl">{t(content.contact.heading)}</h2>
             <p className="mt-4 text-muted">{t(content.contact.sub)}</p>
@@ -431,7 +440,7 @@ function DetailPanel({ node, onClose }: { node: WorldNode; onClose: () => void }
 
 function PanelEyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-4 flex items-center justify-center gap-3">
+    <div className="mb-4 flex items-center gap-3">
       <span className="h-px w-6 bg-accent/60" />
       <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">{children}</span>
     </div>
