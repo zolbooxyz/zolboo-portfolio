@@ -4,33 +4,40 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type Lenis from "lenis";
 
-const DURATION = 1700; // ms to count 0 -> 100
-
+/**
+ * Minimal entry veil: a black screen with a gently breathing wordmark that fades
+ * away the moment the 3D scene signals it's ready (or a short fallback), revealing
+ * the hero greeting on the void. No counter — the hero itself is the opening.
+ */
 export default function Loader() {
-  const [count, setCount] = useState(0);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
     const lenis = (window as unknown as { lenis?: Lenis }).lenis;
     lenis?.stop();
-    // Lenis may not exist yet (child effects run before the provider's), so
-    // lock the document directly as well.
     document.documentElement.style.overflow = "hidden";
     document.body.style.cursor = "wait";
 
-    const start = performance.now();
-    let raf = 0;
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - start) / DURATION);
-      // easeOutExpo for a satisfying deceleration
-      const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
-      setCount(Math.round(eased * 100));
-      if (p < 1) raf = requestAnimationFrame(tick);
-      else setTimeout(() => setDone(true), 380);
+    let fallback = 0;
+    const reveal = () => {
+      window.clearTimeout(fallback);
+      setDone(true);
     };
-    raf = requestAnimationFrame(tick);
 
-    return () => cancelAnimationFrame(raf);
+    const w = window as unknown as { __sceneReady?: boolean };
+    if (w.__sceneReady) {
+      // scene already up (e.g. fast refresh) — hold a beat so it isn't a flash
+      fallback = window.setTimeout(reveal, 500);
+    } else {
+      window.addEventListener("scene-ready", reveal, { once: true });
+      // fallback in case WebGL is unavailable / the event never fires
+      fallback = window.setTimeout(reveal, 2400);
+    }
+
+    return () => {
+      window.removeEventListener("scene-ready", reveal);
+      window.clearTimeout(fallback);
+    };
   }, []);
 
   useEffect(() => {
@@ -45,36 +52,18 @@ export default function Loader() {
     <AnimatePresence>
       {!done && (
         <motion.div
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-bg"
-          exit={{ y: "-100%" }}
-          transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-bg"
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
         >
-          {/* name */}
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden"
+          <motion.span
+            className="font-display text-2xl font-extrabold tracking-tight text-ink sm:text-3xl"
+            animate={{ opacity: [0.35, 1, 0.35] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
           >
-            <span className="font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-              Zolboo<span className="text-accent">.</span>
-            </span>
-          </motion.div>
-
-          {/* counter */}
-          <div className="absolute bottom-8 right-6 sm:bottom-12 sm:right-12">
-            <span className="font-mono text-[clamp(3rem,14vw,8rem)] font-bold leading-none text-ink/90 tabular-nums">
-              {String(count).padStart(3, "0")}
-            </span>
-          </div>
-
-          {/* progress line */}
-          <motion.div
-            className="absolute bottom-0 left-0 h-px bg-accent shadow-glow-sm"
-            initial={{ width: "0%" }}
-            animate={{ width: `${count}%` }}
-            transition={{ ease: "linear", duration: 0.05 }}
-          />
+            Zolboo<span className="text-accent">.</span>
+          </motion.span>
         </motion.div>
       )}
     </AnimatePresence>

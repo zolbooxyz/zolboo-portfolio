@@ -12,7 +12,9 @@ export const content = {
 
   hero: {
     status: { mn: "Шинэ төсөл хүлээж авч байна", en: "Available for new projects" },
-    greeting: { mn: "Сайн уу, би", en: "Hi, I'm" },
+    greeting: { mn: "Сайн уу, би", en: "Hello, I'm" },
+    welcome: { mn: "Миний профайлд тавтай морил", en: "Welcome to my profile" },
+    scrollHint: { mn: "Танилцуулгыг доош гүйлгэж үзээрэй", en: "Scroll down to see my intro" },
     name: "Zolboo",
     role: { mn: "Веб хөгжүүлэгч & Автоматжуулалт", en: "Web Developer & Automation" },
     tagline: {
@@ -23,6 +25,15 @@ export const content = {
     ctaContact: { mn: "Холбогдох", en: "Get in touch" },
     hint: { mn: "↔ neon-г чирээд эргүүлээрэй", en: "↔ drag the neon to spin it" },
     location: { mn: "Улаанбаатар, Монгол", en: "Ulaanbaatar, Mongolia" },
+  },
+
+  memories: {
+    title: { mn: "ДУРСАМЖИЙН ӨРӨӨ", en: "ROOM OF MEMORIES" },
+    line: {
+      mn: "Дурсамж бүр цаг хугацааны мөнхийн тэвэрт хоргодон амьдарна.",
+      en: "Every ghost of a memory finds its sanctuary in the unwavering embrace of the timeless.",
+    },
+    cta: { mn: "Дурсамж нээх", en: "Enter a memory" },
   },
 
   about: {

@@ -18,10 +18,13 @@ export default function SmoothScroll({ children }: { children: ReactNode }) {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) return;
 
+    // lerp mode (not duration/easing): the scroll continuously chases the
+    // target every frame, so a fast flick keeps gliding with natural inertia
+    // instead of completing its fixed-duration ease and snapping to a stop.
     const lenis = new Lenis({
-      duration: 1.1,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      lerp: 0.08,
       smoothWheel: true,
+      wheelMultiplier: 1,
       touchMultiplier: 1.5,
       anchors: true,
     });
@@ -31,6 +34,11 @@ export default function SmoothScroll({ children }: { children: ReactNode }) {
     const raf = (time: number) => lenis.raf(time * 1000);
     gsap.ticker.add(raf);
     gsap.ticker.lagSmoothing(0);
+
+    // always open at the top (blank-void greeting), never a restored position
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    lenis.scrollTo(0, { immediate: true });
+    window.scrollTo(0, 0);
 
     // Expose for anchor links / loader hand-off.
     (window as unknown as { lenis?: Lenis }).lenis = lenis;

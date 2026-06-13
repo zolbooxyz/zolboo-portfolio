@@ -4,6 +4,7 @@ import "./globals.css";
 import { LanguageProvider } from "@/lib/LanguageContext";
 import Loader from "@/components/Loader";
 import Cursor from "@/components/Cursor";
+import SmoothScroll from "@/lib/SmoothScroll";
 
 const display = Syne({
   subsets: ["latin"],
@@ -49,7 +50,7 @@ export default function RootLayout({
         <LanguageProvider>
           <Loader />
           <Cursor />
-          {children}
+          <SmoothScroll>{children}</SmoothScroll>
         </LanguageProvider>
       </body>
     </html>
