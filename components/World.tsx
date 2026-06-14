@@ -13,6 +13,9 @@ import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
 import { palette } from "@/lib/theme";
+import { fetchMemories, addMemory, pickFreeCube, type Memory } from "@/lib/memories";
+import MemoryForm from "@/components/MemoryForm";
+import MemoryCard from "@/components/MemoryCard";
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -101,7 +104,6 @@ export default function World() {
 
   const mountRef = useRef<HTMLDivElement>(null);
   const hintRef = useRef<HTMLDivElement>(null);
-  const roomUIRef = useRef<HTMLDivElement>(null); // "room of memories" terminal UI
   const aboutRef = useRef<HTMLDivElement>(null);
   const journeyRef = useRef<HTMLDivElement>(null);
   const worksRef = useRef<HTMLDivElement>(null);
@@ -119,6 +121,55 @@ export default function World() {
   const [fallback, setFallback] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
 
+  // visitor "room of memories" guestbook
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [formOpen, setFormOpen] = useState(false);
+  const [openMemory, setOpenMemory] = useState<Memory | null>(null);
+  const memoriesRef = useRef<Memory[]>([]); // live copy the WebGL tick can read
+  const cubeCentersRef = useRef<THREE.Vector3[]>([]); // lattice cube world centres
+  const labelEls = useRef<Map<string, HTMLButtonElement>>(new Map()); // nickname label DOM
+  // returns the cube indices currently ON SCREEN (centred, in front, near) so a
+  // new memory lands in a cube the visitor can actually see right now
+  const visibleCubesRef = useRef<(() => number[]) | null>(null);
+  // (re)builds the glowing glass cubes for the occupied cells
+  const syncOccupiedRef = useRef<((mems: Memory[]) => void) | null>(null);
+  // camera "fly to this cube" / "release back to scroll" controls
+  const focusCubeRef = useRef<((cube: number) => void) | null>(null);
+  const releaseFocusRef = useRef<(() => void) | null>(null);
+  // lets the WebGL raycast click open the React card (kept fresh each render)
+  const openMemoryRef = useRef<(m: Memory) => void>(() => {});
+  useEffect(() => {
+    openMemoryRef.current = (mem) => setOpenMemory(mem);
+  });
+
+  useEffect(() => {
+    fetchMemories().then(setMemories);
+  }, []);
+  useEffect(() => {
+    memoriesRef.current = memories;
+    syncOccupiedRef.current?.(memories); // light up the glass cubes for occupied cells
+  }, [memories]);
+
+  const handleMemorySubmit = async (fields: { nickname: string; phone: string; comment: string }) => {
+    const total = cubeCentersRef.current.length;
+    const occupied = memoriesRef.current.map((x) => x.cube);
+    const taken = new Set(occupied);
+    // prefer a free cube that's currently visible on screen; fall back to any
+    // visible cube, then to any free cube anywhere
+    const visible = visibleCubesRef.current?.() ?? [];
+    const visibleFree = visible.filter((i) => !taken.has(i));
+    const cube =
+      visibleFree.length > 0
+        ? visibleFree[Math.floor(Math.random() * visibleFree.length)]
+        : visible.length > 0
+          ? visible[Math.floor(Math.random() * visible.length)]
+          : pickFreeCube(total, occupied);
+    const mem = await addMemory({ ...fields, cube });
+    if (!mem) return false;
+    setMemories((prev) => [...prev, mem]);
+    return true;
+  };
+
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const el = mountRef.current;
@@ -134,7 +185,6 @@ export default function World() {
 
     let disposed = false;
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(new THREE.Color(palette.bg), 0.04);
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -279,99 +329,43 @@ export default function World() {
     scene.add(stars);
 
     // --- "I'm having a moment": the trippy plunge from Project Hail Mary.
-    // A sphere ENCLOSING the camera (BackSide) runs a domain-warped, swirling,
-    // pulsing RED psychedelic shader with a tunnel-rush toward the view centre
-    // (uForward) so it reads as falling in. It blooms on as the intro ends,
-    // overwhelming the dark void with a disorienting red moment. ---
-    const planetUniforms = {
-      uTime: { value: 0 },
-      uReveal: { value: 0 },
-      uForward: { value: new THREE.Vector3(0, 0, -1) },
-    };
-    const planetMat = new THREE.ShaderMaterial({
-      uniforms: planetUniforms,
-      transparent: true,
-      depthWrite: false,
-      depthTest: false, // it's the enveloping backdrop — never occluded
-      side: THREE.BackSide,
-      vertexShader: /* glsl */ `
-        varying vec3 vPos;
-        void main() {
-          vPos = position;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: /* glsl */ `
-        uniform float uTime;
-        uniform float uReveal;
-        uniform vec3 uForward;
-        varying vec3 vPos;
-        float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-        float noise(vec3 x){
-          vec3 i = floor(x), f = fract(x);
-          f = f * f * (3.0 - 2.0 * f);
-          return mix(mix(mix(hash(i+vec3(0,0,0)),hash(i+vec3(1,0,0)),f.x),
-                         mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
-                     mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
-                         mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
-        }
-        float fbm(vec3 p){ float v=0.0,a=0.5; for(int i=0;i<5;i++){ v+=a*noise(p); p*=2.0; a*=0.5; } return v; }
-        void main(){
-          vec3 dir = normalize(vPos);
-          float t = uTime;
-          // tunnel frame around the view centre → rings rush inward = falling in
-          float rad = acos(clamp(dot(dir, uForward), -1.0, 1.0)); // 0 at centre
-          vec3 up = abs(uForward.y) > 0.9 ? vec3(1.0,0.0,0.0) : vec3(0.0,1.0,0.0);
-          vec3 rt = normalize(cross(up, uForward));
-          vec3 uu = cross(uForward, rt);
-          float az = atan(dot(dir, uu), dot(dir, rt));
-          // domain-warped turbulence flowing with time + plunging inward.
-          // (az kept out of the noise input so there's no seam at ±π)
-          vec3 p = dir * 3.0;
-          float tun = 1.6 / (rad + 0.45) + t * 1.4;   // inward rush, softened centre
-          float q1 = fbm(p + vec3(0.0, 0.0, t * 0.5));
-          float q2 = fbm(p * 1.3 + vec3(1.7, tun * 0.4, -t * 0.4) + q1 * 1.6);
-          float f  = fbm(p + 3.0 * vec3(q1, q2, q1) + tun * 0.15);
-          // kaleidoscopic swirl + a pulsing throb (az*5 has no seam: 5·2π≡0)
-          float swirl = 0.5 + 0.5 * sin(az * 5.0 + f * 9.0 - t * 1.6);
-          float pulse = 0.75 + 0.25 * sin(t * 3.0 + f * 6.0);
-          // high-contrast MONOCHROME plunge: deep blacks + bright white veins
-          float v = smoothstep(0.36, 0.74, f);          // mostly dark; bright only on ridges
-          v = mix(v * 0.45, 0.9, clamp(q2 * 1.6 - 0.55, 0.0, 1.0)); // white veins
-          v = mix(v, 1.0, clamp(swirl * f * f * 2.8 - 0.9, 0.0, 1.0)); // hot white cores
-          v += 0.28 * pow(swirl, 3.0);                  // throb glow
-          v *= pulse;
-          v *= mix(1.25, 0.4, smoothstep(0.0, 1.6, rad)); // brighter toward the plunge centre
-          v = pow(clamp(v, 0.0, 1.0), 1.7);             // crush blacks → punchy B&W
-          gl_FragColor = vec4(vec3(v) * uReveal, uReveal);
-        }
-      `,
-    });
-    const planet = new THREE.Mesh(new THREE.SphereGeometry(45, 64, 64), planetMat);
-    planet.position.set(0, 0, 0); // encloses the camera
-    planet.renderOrder = -1; // always behind everything
-    scene.add(planet);
 
     // --- ROOM OF MEMORIES: the dive emerges into a cyan wireframe cyberspace.
     // A cyan grid lattice fills the void; terminal UI resolves over it. ---
 
-    // infinite 3D LATTICE: a real volumetric grid of cyan lines — depth lines
-    // converge to a vanishing point, cross-frames recede in every direction, so
-    // flying through it reads as endless digital space (not a flat wall).
+    // infinite 3D LATTICE made of DISCRETE WIREFRAME CUBES — a volumetric matrix
+    // of individual cyan cube cells (small gaps between them) receding in every
+    // direction, so flying through reads as endless digital space. Each cube is
+    // an addressable cell: content gets placed INSIDE select cubes later (their
+    // world centres are stashed on grid.userData.cubeCenters).
     const latPts: number[] = [];
-    const LH = 48; // half-extent in x/y
+    const cubeCenters: THREE.Vector3[] = [];
+    const SP = 14; // cube cell spacing (centre-to-centre)
+    const HC = 4; // half cube edge (cube = 8, smaller cells with wider gaps)
+    const NX = 5; // cubes either side of centre in x → 11 columns (wide)
+    const NY = 3; // cubes either side of centre in y → 7 rows
     const LZ0 = 34; // near end (behind start)
-    const LZ1 = -110; // far end (deep ahead)
-    const STEP = 12;
-    for (let x = -LH; x <= LH; x += STEP)
-      for (let y = -LH; y <= LH; y += STEP) latPts.push(x, y, LZ0, x, y, LZ1); // depth lines
-    for (let z = LZ1; z <= LZ0; z += STEP) {
-      for (let x = -LH; x <= LH; x += STEP) latPts.push(x, -LH, z, x, LH, z); // vertical of each frame
-      for (let y = -LH; y <= LH; y += STEP) latPts.push(-LH, y, z, LH, y, z); // horizontal of each frame
-    }
+    const LZ1 = -185; // far end (deep ahead)
+    const addCube = (cx: number, cy: number, cz: number) => {
+      cubeCenters.push(new THREE.Vector3(cx, cy, cz));
+      const x0 = cx - HC, x1 = cx + HC, y0 = cy - HC, y1 = cy + HC, z0 = cz - HC, z1 = cz + HC;
+      // 12 edges of the cube as line-segment pairs
+      latPts.push(
+        x0, y0, z0, x1, y0, z0,  x1, y0, z0, x1, y0, z1,  x1, y0, z1, x0, y0, z1,  x0, y0, z1, x0, y0, z0, // bottom
+        x0, y1, z0, x1, y1, z0,  x1, y1, z0, x1, y1, z1,  x1, y1, z1, x0, y1, z1,  x0, y1, z1, x0, y1, z0, // top
+        x0, y0, z0, x0, y1, z0,  x1, y0, z0, x1, y1, z0,  x1, y0, z1, x1, y1, z1,  x0, y0, z1, x0, y1, z1, // verticals
+      );
+    };
+    for (let ix = -NX; ix <= NX; ix++)
+      for (let iy = -NY; iy <= NY; iy++)
+        for (let cz = LZ0; cz >= LZ1; cz -= SP) addCube(ix * SP, iy * SP, cz);
     const latGeo = new THREE.BufferGeometry();
     latGeo.setAttribute("position", new THREE.Float32BufferAttribute(latPts, 3));
-    const gridUniforms = { uReveal: { value: 0 } };
+    const gridUniforms = {
+      uReveal: { value: 0 },
+      uColA: { value: new THREE.Color(palette.accent) }, // bright cyan (near)
+      uColB: { value: new THREE.Color(palette.accent2) }, // deep teal (far)
+    };
     const gridMat = new THREE.ShaderMaterial({
       uniforms: gridUniforms,
       transparent: true,
@@ -383,47 +377,75 @@ export default function World() {
       `,
       fragmentShader: /* glsl */ `
         uniform float uReveal;
+        uniform vec3 uColA;
+        uniform vec3 uColB;
         varying vec3 vW;
         void main(){
           float d = length(vW - cameraPosition);
-          // fade near + far → lines emerge from and dissolve into the distance
-          float fade = (1.0 - smoothstep(45.0, 140.0, d)) * smoothstep(3.0, 10.0, d);
-          gl_FragColor = vec4(vec3(0.5) * fade * uReveal, fade * uReveal); // dim grey backdrop so the bright memory boxes stand out
+          // fade near + far → cubes emerge from and dissolve into the distance
+          // (purely DISTANCE-based — steady, so the cubes hold still when the
+          // scroll stops instead of pulsing/drifting away)
+          float fade = (1.0 - smoothstep(60.0, 175.0, d)) * smoothstep(3.0, 12.0, d);
+          // colour shifts with depth: near = bright cyan, far = deep teal
+          float depthMix = smoothstep(-185.0, 34.0, vW.z);
+          vec3 col = mix(uColB, uColA, depthMix);
+          float a = fade * uReveal;
+          gl_FragColor = vec4(col * a, a);
         }
       `,
     });
     const grid = new THREE.LineSegments(latGeo, gridMat);
+    grid.userData.cubeCenters = cubeCenters; // world centres for placing content in cubes later
+    cubeCentersRef.current = cubeCenters; // expose to React (random placement + label projection)
     scene.add(grid);
 
-    // memory objects: empty 3D WIREFRAME BOXES, arranged TIDILY inside lattice
-    // cells (columns receding in depth — not random) and STATIC in world space.
-    // the scroll-driven dive flies the camera past them. Thin, bright, white.
-    const boxEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 0.55));
-    const COLS = [-30, -18, 18, 30]; // x columns sitting on lattice cell centres
-    const YS = [6, -6, 18, -18]; // y cell centres
-    const FRAG_N = 28;
-    const fragGroup = new THREE.Group();
-    const fragments: { grp: THREE.Group; line: THREE.LineSegments }[] = [];
-    for (let i = 0; i < FRAG_N; i++) {
-      const layer = (i / COLS.length) | 0; // depth layer (0..6)
-      const g = new THREE.Group();
-      const line = new THREE.LineSegments(
-        boxEdges,
-        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })
-      );
-      const ar = 0.82 + ((i * 7) % 3) * 0.16; // aspect variety
-      line.scale.set(ar, 1, 1);
-      g.add(line);
-      const scl = 4.4 + ((i * 5) % 3) * 1.0;
-      g.scale.setScalar(scl);
-      g.position.set(COLS[i % COLS.length], YS[(i + 1) % YS.length], 4 - layer * 13);
-      g.rotation.set(((i % 3) - 1) * 0.07, ((i % 5) - 2) * 0.09, 0); // slight 3D tilt
-      g.renderOrder = 2;
-      fragGroup.add(g);
-      fragments.push({ grp: g, line });
-    }
-    scene.add(fragGroup);
-    const fragCamPos = new THREE.Vector3();
+    // OCCUPIED cells = "filled glass cubes": faint additive glowing faces + bright
+    // edges so a memory-bearing cube stands out from the hollow lattice. Geometry
+    // and materials are shared across all occupied cubes (cheap); a sync function
+    // adds/removes a small group per memory as the list changes.
+    const occGroup = new THREE.Group();
+    scene.add(occGroup);
+    const occBoxGeo = new THREE.BoxGeometry(2 * HC, 2 * HC, 2 * HC);
+    const occEdgeGeo = new THREE.EdgesGeometry(occBoxGeo);
+    const occFaceMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(palette.accent),
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const occEdgeMat = new THREE.LineBasicMaterial({
+      color: new THREE.Color(palette.accent),
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const occMeshes = new Map<string, THREE.Group>();
+    syncOccupiedRef.current = (mems) => {
+      const ids = new Set(mems.map((mm) => mm.id));
+      occMeshes.forEach((g, id) => {
+        if (!ids.has(id)) {
+          occGroup.remove(g);
+          occMeshes.delete(id);
+        }
+      });
+      for (const mm of mems) {
+        if (occMeshes.has(mm.id)) continue;
+        const center = cubeCenters[mm.cube];
+        if (!center) continue;
+        const g = new THREE.Group();
+        g.position.copy(center);
+        g.userData.memId = mm.id; // for click raycasting
+        g.add(new THREE.Mesh(occBoxGeo, occFaceMat));
+        g.add(new THREE.LineSegments(occEdgeGeo, occEdgeMat));
+        occGroup.add(g);
+        occMeshes.set(mm.id, g);
+      }
+    };
+    syncOccupiedRef.current(memoriesRef.current); // memories that loaded before this effect
+
 
     // figure stands on this plane (scaled to 3.4 tall + centred → feet at -1.7)
     const FEET_Y = -1.7;
@@ -434,61 +456,6 @@ export default function World() {
     const moonLight = new THREE.DirectionalLight(0xcfd8ff, 1.6);
     moonLight.position.set(-9, 11, -10);
     scene.add(moonLight);
-
-    // drifting dust motes → atmosphere + a sense of scale
-    const DUST_N = 620;
-    const dustPos = new Float32Array(DUST_N * 3);
-    const dustSpd = new Float32Array(DUST_N);
-    const dustPh = new Float32Array(DUST_N);
-    for (let i = 0; i < DUST_N; i++) {
-      dustPos[i * 3] = (Math.random() * 2 - 1) * 7;
-      dustPos[i * 3 + 1] = Math.random() * 9 - 3;
-      dustPos[i * 3 + 2] = (Math.random() * 2 - 1) * 7;
-      dustSpd[i] = 0.0015 + Math.random() * 0.003;
-      dustPh[i] = Math.random() * Math.PI * 2;
-    }
-    const dustGeo = new THREE.BufferGeometry();
-    dustGeo.setAttribute("position", new THREE.BufferAttribute(dustPos, 3));
-    const dust = new THREE.Points(
-      dustGeo,
-      new THREE.PointsMaterial({ color: 0xcfd6dd, size: 0.02, map: dotTex, transparent: true, opacity: 0.55, depthWrite: false, sizeAttenuation: true })
-    );
-    scene.add(dust);
-    // keeps only the part of the body above the floor visible → the figure
-    // appears to rise up out of the mirror surface on load
-    const floorClip = new THREE.Plane(new THREE.Vector3(0, 1, 0), -FEET_Y);
-
-    // a wide, near-black floor with a faint sheen — catches the figure's glow
-    // and the studio IBL as a soft reflection, grounding it in a dark void
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(160, 160),
-      new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: 0.42, metalness: 0.6, envMapIntensity: 0.5, transparent: true })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = FEET_Y;
-    scene.add(floor);
-
-    // soft radial glow pad under the feet — fakes contact light + hides the
-    // hard reflector edge
-    const padCanvas = document.createElement("canvas");
-    padCanvas.width = padCanvas.height = 256;
-    const padCtx = padCanvas.getContext("2d")!;
-    const grad = padCtx.createRadialGradient(128, 128, 0, 128, 128, 128);
-    grad.addColorStop(0, "rgba(190,210,220,0.32)");
-    grad.addColorStop(0.32, "rgba(120,140,150,0.08)");
-    grad.addColorStop(0.7, "rgba(0,0,0,0)");
-    padCtx.fillStyle = grad;
-    padCtx.fillRect(0, 0, 256, 256);
-    const padTex = new THREE.CanvasTexture(padCanvas);
-    padTex.colorSpace = THREE.SRGBColorSpace;
-    const pad = new THREE.Mesh(
-      new THREE.PlaneGeometry(5, 5),
-      new THREE.MeshBasicMaterial({ map: padTex, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false })
-    );
-    pad.rotation.x = -Math.PI / 2;
-    pad.position.y = FEET_Y + 0.01;
-    scene.add(pad);
-
 
     // metallic human figure: free male human base mesh (T-pose, CC0, from
     // BoQsc/Godot-3D-Male-Base-Mesh) rendered as a solid polished-chrome body
@@ -648,10 +615,14 @@ export default function World() {
     };
     window.addEventListener("pointermove", onMouse);
 
+    let stageW = el.clientWidth || window.innerWidth;
+    let stageH = el.clientHeight || window.innerHeight;
     const resize = () => {
       const w = el.clientWidth;
       const h = el.clientHeight;
       if (!w || !h) return;
+      stageW = w;
+      stageH = h;
       renderer.setSize(w, h);
       composer.setSize(w, h);
       bloom.setSize(w, h);
@@ -664,6 +635,66 @@ export default function World() {
     ro.observe(el);
 
     const tmp = new THREE.Vector3();
+    const labelV = new THREE.Vector3(); // scratch for projecting memory nickname labels
+    // which cubes are comfortably ON SCREEN right now (centred + in front + near):
+    // used to place a new memory where the visitor is actually looking
+    visibleCubesRef.current = () => {
+      const out: number[] = [];
+      camera.updateMatrixWorld(); // ensure projection reads the current camera
+      const cs = cubeCenters;
+      for (let i = 0; i < cs.length; i++) {
+        const dist = camera.position.distanceTo(cs[i]);
+        if (dist < 10 || dist > 95) continue; // too close (clipping) / too far (faded)
+        labelV.copy(cs[i]).project(camera);
+        if (labelV.z >= 1) continue; // behind the camera
+        if (Math.abs(labelV.x) > 0.72 || Math.abs(labelV.y) > 0.72) continue; // off-screen / edge
+        out.push(i);
+      }
+      return out;
+    };
+
+    // camera FOCUS: clicking a memory cube flies the camera in to face it. The
+    // scroll camera is computed every frame, then blended toward this focus pose
+    // (slerp on orientation) while `active`; releasing eases the blend back to 0.
+    const focus = { active: false, blend: 0, pos: new THREE.Vector3(), look: new THREE.Vector3() };
+    const aimObj = new THREE.Object3D();
+    const scrollPos = new THREE.Vector3();
+    const scrollQuat = new THREE.Quaternion();
+    focusCubeRef.current = (cubeIdx) => {
+      const ctr = cubeCenters[cubeIdx];
+      if (!ctr) return;
+      // always settle directly IN FRONT of the cube (its +z face, square to the
+      // screen) for a clean head-on framing — not at an angle from the current side
+      focus.pos.set(ctr.x, ctr.y, ctr.z + 16);
+      focus.look.copy(ctr);
+      focus.active = true;
+    };
+    releaseFocusRef.current = () => {
+      focus.active = false;
+    };
+
+    // click a glowing glass cube directly (raycast) → fly to it + open the card,
+    // even when its nickname label isn't currently on screen
+    const raycaster = new THREE.Raycaster();
+    const clickNdc = new THREE.Vector2();
+    const onSceneClick = (e: MouseEvent) => {
+      if (gridUniforms.uReveal.value < 0.2) return; // only meaningful in the room
+      clickNdc.x = (e.clientX / stageW) * 2 - 1;
+      clickNdc.y = -(e.clientY / stageH) * 2 + 1;
+      raycaster.setFromCamera(clickNdc, camera);
+      const hits = raycaster.intersectObjects(occGroup.children, true);
+      if (!hits.length) return;
+      let o: THREE.Object3D | null = hits[0].object;
+      while (o && !o.userData.memId) o = o.parent;
+      const id = o?.userData.memId as string | undefined;
+      if (!id) return;
+      const mem = memoriesRef.current.find((x) => x.id === id);
+      if (!mem) return;
+      focusCubeRef.current?.(mem.cube);
+      window.setTimeout(() => openMemoryRef.current(mem), 850);
+    };
+    el.addEventListener("click", onSceneClick);
+
     // scratch + targets for the closing "point forward" arm pose. Local-space
     // euler targets (radians) the arm bones slerp toward as the walk finishes;
     // live-tweakable via window.__armPose, then baked into ARM_POINT here.
@@ -830,18 +861,6 @@ export default function World() {
       glowUniforms.uTime.value = t; // drive the sentient rim-glow pulse
       if (bodyTime) bodyTime.value = t; // flow the liquid-metal surface ripple
       stars.rotation.y += 0.0003;
-      planetUniforms.uTime.value = t; // churn the psychedelic red turbulence
-      // the B&W smoke is now the TRANSITION: it plunges in, peaks, then clears
-      // away to reveal the cyan grid room of memories behind it
-      planetUniforms.uReveal.value = smooth(0.78, 0.88, p) * (1.0 - smooth(0.9, 1.0, p));
-      // dust rises slowly with a gentle sway, wrapping back to the bottom
-      for (let i = 0; i < DUST_N; i++) {
-        let y = dustPos[i * 3 + 1] + dustSpd[i];
-        if (y > 6) y = -3;
-        dustPos[i * 3 + 1] = y;
-        dustPos[i * 3] += Math.sin(t * 0.5 + dustPh[i]) * 0.0009;
-      }
-      dustGeo.attributes.position.needsUpdate = true;
 
       // scroll progress (eased)
       const max = document.documentElement.scrollHeight - window.innerHeight;
@@ -895,11 +914,9 @@ export default function World() {
 
       // evolving environment: one continuous mood that breathes with the journey
       const m = sampleMood(p);
-      (scene.fog as THREE.FogExp2).density = m.fog;
       const sMat = stars.material as THREE.PointsMaterial;
       sMat.opacity = m.star;
       sMat.size = 0.07 + m.star * 0.075; // stars swell open in the awe void (round sprites read softer, so a touch larger)
-      (dust.material as THREE.PointsMaterial).opacity = m.dust;
       bloom.strength = m.bloom;
       lensPass.uniforms.uVignette.value = m.vig;
       renderer.toneMappingExposure = m.exp;
@@ -923,32 +940,73 @@ export default function World() {
         c.r * Math.sin(c.ph) * Math.cos(c.th)
       );
       camera.lookAt(frameX, c.ly, c.lz);
-      camera.getWorldDirection(planetUniforms.uForward.value); // tunnel-rush aims at the view centre
       // the dive IS the travel: scrolling flies the camera deep along its gaze,
       // through the static lattice + memory boxes. Stop scrolling → stop moving.
       const dive = smooth(0.72, 1.0, p);
-      if (dive > 0.001) camera.translateZ(-dive * 58.0);
+      if (dive > 0.001) camera.translateZ(-dive * 100.0); // longer flight through the extended room
 
-      // the white grid room fades in as the dive begins; the old void (floor,
-      // contact pad) fades out so the room reads clean
-      gridUniforms.uReveal.value = smooth(0.76, 0.9, p);
-      const roomR = gridUniforms.uReveal.value;
-      (floor.material as THREE.MeshStandardMaterial).opacity = 1 - roomR;
-      (pad.material as THREE.MeshBasicMaterial).opacity = 0.18 * (1 - roomR);
+      // camera focus: capture the scroll-driven pose, then ease toward the
+      // clicked cube (position lerp + orientation slerp). On release it eases
+      // straight back to wherever the scroll camera now sits.
+      const focusTarget = focus.active ? 1 : 0;
+      focus.blend += (focusTarget - focus.blend) * 0.06;
+      if (focus.blend > 0.001) {
+        // ease-in-out on the blend so the glide accelerates then settles softly
+        const e = focus.blend * focus.blend * (3 - 2 * focus.blend);
+        scrollPos.copy(camera.position);
+        scrollQuat.copy(camera.quaternion);
+        aimObj.position.copy(focus.pos);
+        aimObj.lookAt(focus.look);
+        camera.position.lerpVectors(scrollPos, focus.pos, e);
+        camera.quaternion.slerpQuaternions(scrollQuat, aimObj.quaternion, e);
+      }
 
-      // 3D memory boxes are STATIC; just fade them in with the room and fade as
-      // the camera flies very close (passing) or when they sit far ahead.
-      const fragReveal = smooth(0.76, 0.9, p);
-      fragGroup.visible = fragReveal > 0.001;
-      if (fragGroup.visible) {
-        camera.getWorldPosition(fragCamPos);
-        for (let i = 0; i < fragments.length; i++) {
-          const fr = fragments[i];
-          const d = fragCamPos.distanceTo(fr.grp.position);
-          const near = smooth(1.5, 5.0, d);
-          const far = 1 - smooth(48, 66, d);
-          (fr.line.material as THREE.LineBasicMaterial).opacity = fragReveal * near * far;
+      // the lattice resolves in the moment the figure stops walking (p≈0.6) and
+      // the camera-only move begins — it glows up around the standing figure,
+      // then the dive carries us into it
+      gridUniforms.uReveal.value = smooth(0.6, 0.8, p);
+
+      // project each visitor memory's nickname label from its cube → screen, so
+      // the DOM label rides on the 3D cube as the camera moves through the room.
+      // refresh the camera matrices FIRST: otherwise project() reads last frame's
+      // matrixWorldInverse and the label lags a frame behind the cube on the dive
+      camera.updateMatrixWorld();
+      const reveal = gridUniforms.uReveal.value;
+      // the glowing glass cubes fade in/out with the room reveal
+      occFaceMat.opacity = 0.13 * reveal;
+      occEdgeMat.opacity = 0.95 * reveal;
+      occGroup.visible = reveal > 0.01;
+
+      const centers = cubeCentersRef.current;
+      if (reveal > 0.01 && centers.length) {
+        const mems = memoriesRef.current;
+        for (let i = 0; i < mems.length; i++) {
+          const mem = mems[i];
+          const elx = labelEls.current.get(mem.id);
+          if (!elx) continue;
+          const center = centers[mem.cube];
+          if (!center) { elx.style.opacity = "0"; continue; }
+          const dist = camera.position.distanceTo(center);
+          labelV.copy(center).project(camera);
+          const inFront = labelV.z < 1;
+          // nickname reveals only on PROXIMITY — it fades in as the camera flies
+          // near a cube (peak ~16-34 units) and fades out far + when too close,
+          // so the lattice stays clean and the glass cube is the at-a-glance cue
+          const prox = (1 - smooth(34, 60, dist)) * smooth(10, 16, dist);
+          const op = inFront ? reveal * prox : 0;
+          if (op < 0.015) {
+            elx.style.opacity = "0";
+            elx.style.pointerEvents = "none";
+            continue;
+          }
+          const sx = (labelV.x * 0.5 + 0.5) * stageW;
+          const sy = (-labelV.y * 0.5 + 0.5) * stageH;
+          elx.style.transform = `translate(-50%,-50%) translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`;
+          elx.style.opacity = op.toFixed(2);
+          elx.style.pointerEvents = op > 0.45 ? "auto" : "none";
         }
+      } else {
+        labelEls.current.forEach((elx) => { elx.style.opacity = "0"; elx.style.pointerEvents = "none"; });
       }
 
       // keep the figure in focus; everything else softly blurs
@@ -960,8 +1018,6 @@ export default function World() {
       // (thRest/rRest = the camera angle/radius at that chapter's hold)
       // hero greeting: full at rest, drifts up + away as the scroll/walk begins
       setOverlay(hintRef.current, clamp01(1 - p / 0.12), 0, -40);
-      // room-of-memories terminal UI: resolves in once we've fully arrived
-      setOverlay(roomUIRef.current, smooth(0.93, 1.0, p), 0, 24);
 
       // chapter sections (about/journey/works/contact) are deferred for now —
       // re-enable by wiring their reveals back to scroll beats once they return.
@@ -975,23 +1031,17 @@ export default function World() {
       disposed = true;
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onMouse);
+      el.removeEventListener("click", onSceneClick);
       ro.disconnect();
       starGeo.dispose();
-      planet.geometry.dispose();
-      planetMat.dispose();
       grid.geometry.dispose();
       gridMat.dispose();
-      boxEdges.dispose();
-      fragments.forEach((f) => (f.line.material as THREE.Material).dispose());
-      dustGeo.dispose();
-      (dust.material as THREE.Material).dispose();
+      occBoxGeo.dispose();
+      occEdgeGeo.dispose();
+      occFaceMat.dispose();
+      occEdgeMat.dispose();
       metalMat.dispose();
       glowMat.dispose();
-      floor.geometry.dispose();
-      (floor.material as THREE.Material).dispose();
-      pad.geometry.dispose();
-      (pad.material as THREE.Material).dispose();
-      padTex.dispose();
       dotTex.dispose();
       envRT.dispose();
       pmrem.dispose();
@@ -1007,7 +1057,7 @@ export default function World() {
     <>
       {/* scroll runway — scrubs the figure's walk-and-turn clip; the stage below
           is fixed/pinned so the scene holds while the body animates with scroll */}
-      <div style={{ height: "380vh" }} aria-hidden />
+      <div style={{ height: "520vh" }} aria-hidden />
 
       {/* fixed cinematic stage — colour (iridescent figure reads in full colour) */}
       <div className="fixed inset-0 select-none overflow-hidden bg-bg">
@@ -1048,25 +1098,6 @@ export default function World() {
           <p className="mt-5 max-w-md font-display text-lg font-semibold text-ink/85 [text-shadow:0_2px_22px_rgba(0,0,0,0.9)] sm:text-2xl">
             {t(content.hero.welcome)}
           </p>
-        </div>
-
-        {/* room of memories — terminal UI that resolves in once we arrive in the
-            cyan grid space (monospace, accent cyan, bracket-glyph chrome) */}
-        <div
-          ref={roomUIRef}
-          className="pointer-events-none absolute inset-0 z-[15] flex flex-col items-center justify-center px-6 text-center will-change-transform"
-          style={{ opacity: 0 }}
-        >
-          <div className="font-mono text-[10px] tracking-[0.5em] text-white/40">] [ &nbsp; ] [ &nbsp; ] [</div>
-          <h2 className="mt-3 font-mono text-2xl font-medium tracking-[0.3em] text-white [text-shadow:0_0_24px_rgba(255,255,255,0.35)] sm:text-4xl">
-            ] {t(content.memories.title)} [
-          </h2>
-          <p className="mt-6 max-w-md font-mono text-xs leading-relaxed tracking-wide text-white/65 sm:text-sm">
-            {t(content.memories.line)}
-          </p>
-          <button className="pointer-events-auto mt-9 border border-white/45 px-7 py-3 font-mono text-xs uppercase tracking-[0.25em] text-white/90 transition-colors hover:bg-white/10">
-            {t(content.memories.cta)}
-          </button>
         </div>
 
         {/* chapter: about — card-free kinetic type, right column */}
@@ -1154,6 +1185,48 @@ export default function World() {
 
         {/* project detail panel */}
         {selected && <DetailPanel id={selected} onClose={() => setSelected(null)} />}
+
+        {/* visitor memory nickname labels — each rides on its lattice cube, the
+            tick projects its 3D centre to screen every frame (mono cyan to match
+            the wireframe). Click → glass card with the full message. */}
+        <div className="pointer-events-none absolute inset-0 z-[16]">
+          {memories.map((mem) => (
+            <button
+              key={mem.id}
+              ref={(elx) => {
+                if (elx) labelEls.current.set(mem.id, elx);
+                else labelEls.current.delete(mem.id);
+              }}
+              onClick={() => {
+                focusCubeRef.current?.(mem.cube); // fly the camera in to the cube
+                window.setTimeout(() => setOpenMemory(mem), 850); // card after it arrives
+              }}
+              style={{ position: "absolute", top: 0, left: 0, opacity: 0 }}
+              className="whitespace-nowrap font-mono text-xs tracking-[0.18em] text-accent text-glow transition-colors hover:text-ink"
+            >
+              {mem.nickname}
+            </button>
+          ))}
+        </div>
+
+        {/* leave-a-memory trigger */}
+        <button
+          onClick={() => setFormOpen(true)}
+          className="pointer-events-auto absolute bottom-7 left-1/2 z-20 -translate-x-1/2 rounded-full border border-accent/30 bg-surface/60 px-5 py-2.5 font-mono text-xs uppercase tracking-[0.18em] text-accent backdrop-blur transition-colors hover:bg-accent/10"
+        >
+          ✦ {t(content.memories.cta)}
+        </button>
+
+        <MemoryForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleMemorySubmit} />
+        {openMemory && (
+          <MemoryCard
+            memory={openMemory}
+            onClose={() => {
+              setOpenMemory(null);
+              releaseFocusRef.current?.(); // ease the camera back to the scroll path
+            }}
+          />
+        )}
       </div>
     </>
   );
