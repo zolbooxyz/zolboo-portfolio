@@ -31,7 +31,7 @@ html.lenis body {
 body {
   background-color: var(--bg);
   color: #e8eef5;
-  font-family: var(--font-body), sans-serif;
+  font-family: var(--font-display), sans-serif;
   overflow-x: hidden;
 }
 
@@ -99,6 +99,15 @@ html.custom-cursor * {
   .animate-marquee {
     animation: none;
   }
+}
+
+/* Terminal caret blink */
+@keyframes caretBlink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+.caret {
+  animation: caretBlink 1.05s steps(1, end) infinite;
 }
 
 /* Neon text accent */

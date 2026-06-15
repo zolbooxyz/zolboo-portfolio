@@ -16,7 +16,7 @@ export const content = {
     welcome: { mn: "Миний профайлд тавтай морил", en: "Welcome to my profile" },
     scrollHint: { mn: "Танилцуулгыг доош гүйлгэж үзээрэй", en: "Scroll down to see my intro" },
     name: "Zolboo",
-    role: { mn: "Веб хөгжүүлэгч & Автоматжуулалт", en: "Web Developer & Automation" },
+    role: { mn: "Full-Stack хөгжүүлэгч · Автоматжуулалт", en: "Full-Stack Developer · Automation" },
     tagline: {
       mn: "Би вэбсайт, чатбот, автоматжуулалт бүтээдэг. Монголын бизнесүүдэд бодит үр дүн авчрах гэж хичээдэг.",
       en: "I build websites, chatbots, and automations — and I care about getting real results for Mongolian businesses.",
@@ -25,30 +25,36 @@ export const content = {
     ctaContact: { mn: "Холбогдох", en: "Get in touch" },
     hint: { mn: "↔ neon-г чирээд эргүүлээрэй", en: "↔ drag the neon to spin it" },
     location: { mn: "Улаанбаатар, Монгол", en: "Ulaanbaatar, Mongolia" },
+    skillsNote: {
+      mn: "AI — видео үүсгэхээс бусад бүх чиглэлд ажилладаг",
+      en: "AI — every domain except video generation",
+    },
+    startCta: { mn: "Доош гүйлгэж эхлүүл", en: "Scroll to start" },
   },
 
   memories: {
-    title: { mn: "ДУРСАМЖИЙН ӨРӨӨ", en: "ROOM OF MEMORIES" },
+    title: { mn: "Дурсамжийн өрөө", en: "Room of Memories" },
     line: {
-      mn: "Дурсамж бүр цаг хугацааны мөнхийн тэвэрт хоргодон амьдарна.",
-      en: "Every ghost of a memory finds its sanctuary in the unwavering embrace of the timeless.",
+      mn: "Энд зочилсон хүн бүрийн үлдээсэн ул мөр — мөнхөд гэрэлтэн үлдэнэ.",
+      en: "Every visitor leaves a trace here — left to glow for good.",
     },
     cta: { mn: "Дурсамж үлдээх", en: "Leave a memory" },
     formTitle: { mn: "Дурсамж үлдээх", en: "Leave a memory" },
-    formSub: {
-      mn: "Таны үг латисын хоосон кубт мөнхөрнө.",
-      en: "Your words will live on in an empty cube of the lattice.",
+    formEyebrow: { mn: "Дурсамжийн өрөө", en: "Room of Memories" },
+    formIntro: {
+      mn: "Энэ сайтаар зочилсон хүн бүр энд ул мөрөө үлдээдэг. Нэр, хэдэн үг бичээрэй — таны дурсамж энэ орон зайд үргэлж хадгалагдаж, гэрэлтэх болно.",
+      en: "Everyone who visits leaves a trace here. Drop your name and a few words — your memory stays in this space, glowing, for good.",
     },
-    nickname: { mn: "Хоч нэр", en: "Nickname" },
-    nicknamePh: { mn: "таны хоч", en: "your nickname" },
-    phone: { mn: "Утасны дугаар", en: "Phone number" },
+    nickname: { mn: "Нэр", en: "Name" },
+    nicknamePh: { mn: "таны нэр", en: "your name" },
+    phone: { mn: "Утас", en: "Phone" },
     phonePh: { mn: "99xxxxxx", en: "99xxxxxx" },
-    phoneNote: { mn: "Нийтэд харагдахгүй", en: "Never shown publicly" },
-    comment: { mn: "Сэтгэгдэл", en: "Your memory" },
+    phoneNote: { mn: "Заавал биш · нийтэд харагдахгүй", en: "Optional · never shown" },
+    comment: { mn: "Сэтгэгдэл", en: "Message" },
     commentPh: { mn: "үлдээх үгээ бичнэ үү…", en: "write your message…" },
-    submit: { mn: "Илгээх", en: "Submit" },
-    submitting: { mn: "Илгээж байна…", en: "Submitting…" },
-    success: { mn: "Дурсамж кубт мөнхөрлөө ✦", en: "Your memory now lives in a cube ✦" },
+    submit: { mn: "Үлдээх", en: "Leave it" },
+    submitting: { mn: "Хадгалж байна…", en: "Saving…" },
+    success: { mn: "Таны дурсамж хадгалагдлаа ✦", en: "Your memory is saved ✦" },
     error: { mn: "Алдаа гарлаа. Дахин оролдоно уу.", en: "Something went wrong. Try again." },
     close: { mn: "Хаах", en: "Close" },
   },
@@ -267,6 +273,21 @@ export const content = {
     phone: "8869 0420",
     phoneRaw: "+97688690420",
     location: { mn: "Улаанбаатар, Монгол", en: "Ulaanbaatar, Mongolia" },
+    // TODO: replace with the real profile URLs
+    social: {
+      facebook: "https://facebook.com/",
+      instagram: "https://instagram.com/",
+    },
+  },
+
+  // closing beat over the memory-galaxy finale
+  finale: {
+    heading: { mn: "Хамтдаа од асаах уу?", en: "Let's light up a star together" },
+    sub: {
+      mn: "Төсөл, санаа байвал нэг дурсамж үлдээгээрэй — би хариулна.",
+      en: "Got a project or an idea? Leave a memory — I'll reply.",
+    },
+    continued: { mn: "Үргэлжлэл бий…", en: "To be continued…" },
   },
 
   footer: {

@@ -19,8 +19,9 @@ const config: Config = {
         "accent-2": "#15B8C9",
       },
       fontFamily: {
-        display: ["var(--font-display)", "sans-serif"],
-        body: ["var(--font-body)", "sans-serif"],
+        display: ["var(--font-display)", "sans-serif"], // Onest
+        body: ["var(--font-display)", "sans-serif"], // Onest
+        logo: ["var(--font-logo)", "sans-serif"], // Syne — brand logo only
         mono: ["var(--font-mono)", "monospace"],
       },
       boxShadow: {

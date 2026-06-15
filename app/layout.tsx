@@ -1,22 +1,24 @@
 import type { Metadata } from "next";
-import { Syne, Manrope, JetBrains_Mono } from "next/font/google";
+import { Syne, Onest, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/LanguageContext";
 import Loader from "@/components/Loader";
 import Cursor from "@/components/Cursor";
 import SmoothScroll from "@/lib/SmoothScroll";
 
-const display = Syne({
+// Syne is reserved for the brand logo only (the "zolboo.xyz" signature)
+const logo = Syne({
   subsets: ["latin"],
   weight: ["600", "700", "800"],
-  variable: "--font-display",
+  variable: "--font-logo",
   display: "swap",
 });
 
-const body = Manrope({
+// Onest drives everything else — headings + body (Latin + Cyrillic)
+const sans = Onest({
   subsets: ["latin", "cyrillic"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-body",
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -45,7 +47,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="mn" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    <html lang="mn" className={`${logo.variable} ${sans.variable} ${mono.variable}`}>
       <body className="grain bg-bg text-ink antialiased">
         <LanguageProvider>
           <Loader />

@@ -14,6 +14,9 @@ import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
 import { palette } from "@/lib/theme";
 import { fetchMemories, addMemory, pickFreeCube, type Memory } from "@/lib/memories";
+import { motion } from "framer-motion";
+import { Mail, Phone, Facebook, Instagram } from "lucide-react";
+import Logo from "@/components/Logo";
 import MemoryForm from "@/components/MemoryForm";
 import MemoryCard from "@/components/MemoryCard";
 
@@ -68,9 +71,10 @@ function sampleCam(p: number): { r: number; th: number; ph: number; fx: number; 
 // continuous journey (tight & dark → open star-filled awe → settled → closing in)
 type Mood = { p: number; fog: number; star: number; grid: number; dust: number; bloom: number; vig: number; exp: number };
 const MOOD: Mood[] = [
-  { p: 0.0, fog: 0.04, star: 0.42, grid: 0, dust: 0.5, bloom: 0.32, vig: 0.4, exp: 0.86 }, // hero — tight, dark
+  { p: 0.0, fog: 0.04, star: 0.42, grid: 0, dust: 0.5, bloom: 0.32, vig: 0.24, exp: 0.86 }, // hero — softer vignette so the starfield fills the frame
   { p: 0.5, fog: 0.03, star: 0.6, grid: 0, dust: 0.45, bloom: 0.36, vig: 0.34, exp: 0.9 }, // opens slightly as it moves
-  { p: 1.0, fog: 0.036, star: 0.52, grid: 0, dust: 0.5, bloom: 0.34, vig: 0.38, exp: 0.88 }, // settle
+  { p: 0.86, fog: 0.036, star: 0.55, grid: 0, dust: 0.5, bloom: 0.34, vig: 0.38, exp: 0.88 }, // dive settle, just before the finale
+  { p: 1.0, fog: 0.02, star: 0.18, grid: 0, dust: 0.5, bloom: 0.34, vig: 0.3, exp: 0.96 }, // FINALE sign-off — clean dark void, dim the field stars so the signature reads
 ];
 function sampleMood(p: number): Omit<Mood, "p"> {
   if (p <= MOOD[0].p) return MOOD[0];
@@ -99,11 +103,83 @@ function hasWebGL(): boolean {
   }
 }
 
+// --- FINALE sign-off motion (framer-motion variants) ---
+const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+const finaleContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.34, delayChildren: 0.15 } },
+};
+const finaleItem = {
+  hidden: { opacity: 0, y: 20, filter: "blur(8px)" },
+  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.8, ease: EASE_OUT } },
+};
+const finaleSig = {
+  hidden: { clipPath: "inset(0 100% 0 0)", opacity: 0 },
+  visible: {
+    clipPath: "inset(0 0% 0 0)",
+    opacity: 1,
+    transition: { clipPath: { duration: 1.5, ease: [0.65, 0, 0.35, 1] }, opacity: { duration: 0.4 } },
+  },
+};
+const finaleLine = {
+  hidden: { scaleX: 0, opacity: 0 },
+  visible: { scaleX: 1, opacity: 1, transition: { duration: 0.9, ease: EASE_OUT } },
+};
+const finaleGlow = {
+  hidden: { opacity: 0, scale: 0.85 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 1.6, ease: EASE_OUT } },
+};
+
+// --- HERO character-select HUD entrance (framer-motion variants) ---
+const hudContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.09, delayChildren: 0.25 } },
+};
+const hudItem = {
+  hidden: { opacity: 0, y: 18, filter: "blur(6px)" },
+  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.6, ease: EASE_OUT } },
+};
+const hudLine = {
+  hidden: { scaleX: 0, opacity: 0 },
+  visible: { scaleX: 1, opacity: 1, transition: { duration: 0.8, ease: EASE_OUT } },
+};
+const hudRows = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07 } },
+};
+const hudRow = {
+  hidden: { opacity: 0, x: -24, filter: "blur(5px)" },
+  visible: { opacity: 1, x: 0, filter: "blur(0px)", transition: { duration: 0.5, ease: EASE_OUT } },
+};
+const hudBracketWrap = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1 } },
+};
+const hudBracket = {
+  hidden: { opacity: 0, scale: 0.3 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.55, ease: EASE_OUT } },
+};
+
 export default function World() {
   const { t } = useLang();
 
   const mountRef = useRef<HTMLDivElement>(null);
-  const hintRef = useRef<HTMLDivElement>(null);
+  // hero "character select" HUD (DOM overlay) — the WebGL tick drives a staggered,
+  // directional exit (synced to the scroll-scrubbed walk) on these sub-groups
+  const heroRef = useRef<HTMLDivElement>(null);
+  const hudBracketsRef = useRef<HTMLDivElement>(null);
+  const hudPanelRef = useRef<HTMLDivElement>(null);
+  const hudStartRef = useRef<HTMLDivElement>(null);
+
+  // character-select skill matrix — a full, professional skill sheet
+  const heroSkills = [
+    { cat: "Frontend", items: "Next.js · React · TypeScript · Tailwind · Three.js · GSAP" },
+    { cat: "Backend & SaaS", items: "Node.js · Supabase · PostgreSQL · REST · Auth" },
+    { cat: "Automation", items: "n8n · Make.com · ManyChat · Zapier · Webhooks" },
+    { cat: "AI", items: "Claude · OpenAI · RAG · Agents · Chatbots · Image · Voice" },
+    { cat: "Design", items: "Figma · Framer Motion · UI/UX" },
+    { cat: "Foundations", items: "HTML · CSS · JavaScript · Git · SEO" },
+  ];
   const aboutRef = useRef<HTMLDivElement>(null);
   const journeyRef = useRef<HTMLDivElement>(null);
   const worksRef = useRef<HTMLDivElement>(null);
@@ -120,11 +196,35 @@ export default function World() {
 
   const [fallback, setFallback] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  // play the HUD entrance only once the loader reveals the scene (scene-ready),
+  // otherwise the cascade finishes hidden behind the loader
+  const [heroReady, setHeroReady] = useState(false);
+  useEffect(() => {
+    const w = window as unknown as { __sceneReady?: boolean };
+    if (w.__sceneReady) {
+      const id = window.setTimeout(() => setHeroReady(true), 350);
+      return () => window.clearTimeout(id);
+    }
+    const on = () => setHeroReady(true);
+    window.addEventListener("scene-ready", on, { once: true });
+    const fb = window.setTimeout(() => setHeroReady(true), 2600);
+    return () => {
+      window.removeEventListener("scene-ready", on);
+      window.clearTimeout(fb);
+    };
+  }, []);
 
   // visitor "room of memories" guestbook
   const [memories, setMemories] = useState<Memory[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [openMemory, setOpenMemory] = useState<Memory | null>(null);
+  // true once the scroll has carried us into the room-of-memories scene, so the
+  // "leave a memory" trigger only surfaces where it makes sense
+  const [memoryRoomActive, setMemoryRoomActive] = useState(false);
+  const memoryRoomActiveRef = useRef(false); // throttle: only setState on crossings
+  // the closing "memory galaxy" beat — drives the contact finale overlay
+  const [finaleActive, setFinaleActive] = useState(false);
+  const finaleActiveRef = useRef(false);
   const memoriesRef = useRef<Memory[]>([]); // live copy the WebGL tick can read
   const cubeCentersRef = useRef<THREE.Vector3[]>([]); // lattice cube world centres
   const labelEls = useRef<Map<string, HTMLButtonElement>>(new Map()); // nickname label DOM
@@ -185,7 +285,7 @@ export default function World() {
 
     let disposed = false;
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 420); // far reaches the finale galaxy (~157 units out)
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -309,11 +409,11 @@ export default function World() {
     const dotTex = new THREE.CanvasTexture(dotCanvas);
     dotTex.colorSpace = THREE.SRGBColorSpace;
 
-    // starfield
-    const starN = 1400;
+    // starfield — a deep, dense cosmos the figure walks through
+    const starN = 7200;
     const starPos = new Float32Array(starN * 3);
     for (let i = 0; i < starN; i++) {
-      const r = 12 + Math.random() * 20;
+      const r = 10 + Math.random() * 62; // wide depth range → layered space
       const th = Math.random() * Math.PI * 2;
       const ph = Math.acos(Math.random() * 2 - 1);
       starPos[i * 3] = r * Math.sin(ph) * Math.cos(th);
@@ -324,9 +424,10 @@ export default function World() {
     starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
     const stars = new THREE.Points(
       starGeo,
-      new THREE.PointsMaterial({ color: new THREE.Color(palette.ink), size: 0.05, map: dotTex, transparent: true, opacity: 0.5, depthWrite: false })
+      new THREE.PointsMaterial({ color: new THREE.Color(palette.ink), size: 2, map: dotTex, transparent: true, opacity: 0.5, depthWrite: false, sizeAttenuation: false })
     );
     scene.add(stars);
+
 
     // --- "I'm having a moment": the trippy plunge from Project Hail Mary.
 
@@ -446,6 +547,10 @@ export default function World() {
     };
     syncOccupiedRef.current(memoriesRef.current); // memories that loaded before this effect
 
+    // --- FINALE: THE SIGN-OFF ---
+    // The dive opens out into a clean, deep void; the figure has dissolved away.
+    // The "zolboo.xyz" light signature writes itself and the contact resolves as
+    // a DOM overlay (with its own centred glow) — no extra 3D clutter here.
 
     // figure stands on this plane (scaled to 3.4 tall + centred → feet at -1.7)
     const FEET_Y = -1.7;
@@ -779,6 +884,9 @@ export default function World() {
     let introDone = false;
     let started = false; // latches true once the user first scrolls down
     const INTRO_DUR = 4.2;
+    // debug: /?p=<0..1> pins scroll progress for tuning (null = normal scroll)
+    const pDebugRaw = new URLSearchParams(window.location.search).get("p");
+    const pDebug = pDebugRaw != null ? clamp01(parseFloat(pDebugRaw)) : null;
     const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
     const sm = { x: 0, y: 0 }; // inertia-smoothed pointer
 
@@ -850,7 +958,19 @@ export default function World() {
 
         // figure fades + settles up into view on load
         const showE = smooth(0.05, 0.7, it);
-        figure.visible = it > 0.02;
+        // FINALE: dissolve the figure out before the camera pulls back, so it
+        // never floats in front of the galaxy (p holds last frame's value here —
+        // a 1-frame lag is invisible). Its atoms "become" the galaxy.
+        const figFade = 1 - smooth(0.84, 0.93, p);
+        figure.visible = it > 0.02 && figFade > 0.02;
+        const wantTrans = figFade < 1;
+        if (wantTrans !== metalTrans) {
+          metalTrans = wantTrans;
+          metalMat.transparent = wantTrans;
+          metalMat.needsUpdate = true;
+        }
+        metalMat.opacity = figFade;
+        glowUniforms.uFade.value = figFade;
         const grow = 0.9 + 0.1 * showE;
 
         // the catwalk animation drives the body; here we only reveal it (grow +
@@ -865,10 +985,15 @@ export default function World() {
       // scroll progress (eased)
       const max = document.documentElement.scrollHeight - window.innerHeight;
       const target = max > 0 ? clamp01(window.scrollY / max) : 0;
-      // advance toward the scroll target at a CAPPED, uniform pace: no matter how
-      // fast the user flings the scroll, the scene only ever glides forward at
-      // this max speed (it eases as it nears the target so it still settles).
-      p += Math.max(-0.0065, Math.min(0.0065, (target - p) * 0.18));
+      // debug: /?p=0.95 freezes the scene at that progress for tuning the finale
+      if (pDebug != null) {
+        p = pDebug;
+      } else {
+        // advance toward the scroll target at a CAPPED, uniform pace: no matter how
+        // fast the user flings the scroll, the scene only ever glides forward at
+        // this max speed (it eases as it nears the target so it still settles).
+        p += Math.max(-0.0065, Math.min(0.0065, (target - p) * 0.18));
+      }
 
       // scrub the walk-and-turn clip by scroll: clip time = scroll position, eased
       // so it glides instead of snapping. lock the hips' XZ so the body walks +
@@ -915,8 +1040,12 @@ export default function World() {
       // evolving environment: one continuous mood that breathes with the journey
       const m = sampleMood(p);
       const sMat = stars.material as THREE.PointsMaterial;
-      sMat.opacity = m.star;
-      sMat.size = 0.07 + m.star * 0.075; // stars swell open in the awe void (round sprites read softer, so a touch larger)
+      // fade the whole starfield out into the finale so no stray stars flicker
+      // behind the sign-off — the void goes clean black for the signature
+      const starFade = 1 - smooth(0.86, 1.0, p);
+      sMat.opacity = Math.min(1, 0.65 + m.star * 0.9) * starFade; // bright cosmos → clean void
+      sMat.size = 2.6 + m.star * 1.6; // pixel-sized stars (no attenuation) → a deep, even starfield
+      stars.visible = starFade > 0.001;
       bloom.strength = m.bloom;
       lensPass.uniforms.uVignette.value = m.vig;
       renderer.toneMappingExposure = m.exp;
@@ -942,8 +1071,13 @@ export default function World() {
       camera.lookAt(frameX, c.ly, c.lz);
       // the dive IS the travel: scrolling flies the camera deep along its gaze,
       // through the static lattice + memory boxes. Stop scrolling → stop moving.
-      const dive = smooth(0.72, 1.0, p);
-      if (dive > 0.001) camera.translateZ(-dive * 100.0); // longer flight through the extended room
+      // the dive now completes by p≈0.88; the finale (below) pulls back out.
+      const dive = smooth(0.72, 0.88, p);
+      if (dive > 0.001) camera.translateZ(-dive * 100.0); // flight through the room
+      // FINALE pull-back: ease the camera straight back out along its gaze so the
+      // lattice falls away behind us and the whole galaxy resolves into frame.
+      const pull = smooth(0.88, 1.0, p);
+      if (pull > 0.001) camera.translateZ(pull * 145.0);
 
       // camera focus: capture the scroll-driven pose, then ease toward the
       // clicked cube (position lerp + orientation slerp). On release it eases
@@ -963,8 +1097,28 @@ export default function World() {
 
       // the lattice resolves in the moment the figure stops walking (p≈0.6) and
       // the camera-only move begins — it glows up around the standing figure,
-      // then the dive carries us into it
-      gridUniforms.uReveal.value = smooth(0.6, 0.8, p);
+      // then the dive carries us into it. In the finale it fades back out as the
+      // galaxy takes over (occGroup opacity below follows uReveal automatically).
+      const revealFinale = smooth(0.86, 1.0, p);
+      gridUniforms.uReveal.value = smooth(0.6, 0.8, p) * (1 - revealFinale);
+
+      // FINALE sign-off: the lattice fades to a clean void; the signature + glow
+      // are handled by the DOM overlay (gated on finaleActive below).
+
+      // surface the "leave a memory" trigger once the room has clearly resolved;
+      // flip React state only on the crossing so we don't setState every frame
+      const roomActive = gridUniforms.uReveal.value > 0.5;
+      if (roomActive !== memoryRoomActiveRef.current) {
+        memoryRoomActiveRef.current = roomActive;
+        setMemoryRoomActive(roomActive);
+      }
+
+      // surface the contact finale once the sign-off space has resolved
+      const finOn = revealFinale > 0.6;
+      if (finOn !== finaleActiveRef.current) {
+        finaleActiveRef.current = finOn;
+        setFinaleActive(finOn);
+      }
 
       // project each visitor memory's nickname label from its cube → screen, so
       // the DOM label rides on the 3D cube as the camera moves through the room.
@@ -1017,7 +1171,12 @@ export default function World() {
       // pointer and scales with distance, so it reads as pinned beside the figure
       // (thRest/rRest = the camera angle/radius at that chapter's hold)
       // hero greeting: full at rest, drifts up + away as the scroll/walk begins
-      setOverlay(hintRef.current, clamp01(1 - p / 0.12), 0, -40);
+      // hero character-select HUD: a staggered, directional power-down synced to
+      // the scroll-scrubbed walk — START drops first, brackets fade, then the
+      // whole skill panel slides off to the left as the character walks in.
+      setOverlay(hudStartRef.current, clamp01(1 - smooth(0.0, 0.06, p)), 0, 28);
+      setOverlay(hudBracketsRef.current, clamp01(1 - smooth(0.0, 0.1, p)), 0, 0);
+      setOverlay(hudPanelRef.current, clamp01(1 - smooth(0.04, 0.17, p)), -60, 0);
 
       // chapter sections (about/journey/works/contact) are deferred for now —
       // re-enable by wiring their reveals back to scroll beats once they return.
@@ -1057,7 +1216,7 @@ export default function World() {
     <>
       {/* scroll runway — scrubs the figure's walk-and-turn clip; the stage below
           is fixed/pinned so the scene holds while the body animates with scroll */}
-      <div style={{ height: "520vh" }} aria-hidden />
+      <div style={{ height: "680vh" }} aria-hidden />
 
       {/* fixed cinematic stage — colour (iridescent figure reads in full colour) */}
       <div className="fixed inset-0 select-none overflow-hidden bg-bg">
@@ -1066,7 +1225,7 @@ export default function World() {
         {/* cinematic vignette */}
         <div
           className="pointer-events-none absolute inset-0 z-[5]"
-          style={{ background: "radial-gradient(125% 110% at 50% 45%, transparent 52%, rgba(0,0,0,0.6) 100%)" }}
+          style={{ background: "radial-gradient(140% 130% at 50% 45%, transparent 74%, rgba(0,0,0,0.45) 100%)" }}
         />
         {/* film grain */}
         <div
@@ -1081,23 +1240,99 @@ export default function World() {
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-6 py-5 sm:px-10">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="pointer-events-auto flex items-center gap-2"
+            aria-label="zolboo.xyz — back to top"
+            className="pointer-events-auto transition-opacity hover:opacity-80"
           >
-            <span className="font-display text-lg font-extrabold tracking-tight text-ink">Zolboo</span>
-            <span className="h-2 w-2 animate-pulseGlow rounded-full bg-accent" />
+            <Logo className="text-xl" />
           </button>
           <LangToggle />
         </div>
 
-        {/* hero: the opening greeting on the blank void — bold welcome + faint
-            scroll prompt; drifts away as the figure rises on first scroll */}
-        <div ref={hintRef} className="pointer-events-none absolute inset-0 flex flex-col items-start justify-center px-8 text-left will-change-transform sm:px-20" style={{ opacity: 1 }}>
-          <h1 className="text-grad max-w-2xl font-display text-5xl font-extrabold leading-[1.02] tracking-tight [filter:drop-shadow(0_6px_34px_rgba(0,0,0,0.85))] sm:text-7xl">
-            {t(content.hero.greeting)} Zolboo<span className="text-accent text-glow">.</span>
-          </h1>
-          <p className="mt-5 max-w-md font-display text-lg font-semibold text-ink/85 [text-shadow:0_2px_22px_rgba(0,0,0,0.9)] sm:text-2xl">
-            {t(content.hero.welcome)}
-          </p>
+        {/* hero greeting — a clean boot terminal (no background) that types itself
+            out; the WebGL tick fades it as the figure rises */}
+        <div ref={heroRef} className="pointer-events-none absolute inset-0 z-[6] will-change-transform">
+          {/* HUD corner brackets — lock into the frame one by one on load */}
+          <div ref={hudBracketsRef} className="absolute inset-0 will-change-[opacity]" style={{ opacity: 1 }}>
+            <motion.div initial="hidden" animate={heroReady ? "visible" : "hidden"} variants={hudBracketWrap} className="absolute inset-0">
+              <motion.div variants={hudBracket} className="absolute left-5 top-5 h-7 w-7 border-l border-t border-accent/40 sm:left-8 sm:top-8" />
+              <motion.div variants={hudBracket} className="absolute right-5 top-5 h-7 w-7 border-r border-t border-accent/40 sm:right-8 sm:top-8" />
+              <motion.div variants={hudBracket} className="absolute bottom-5 left-5 h-7 w-7 border-b border-l border-accent/40 sm:bottom-8 sm:left-8" />
+              <motion.div variants={hudBracket} className="absolute bottom-5 right-5 h-7 w-7 border-b border-r border-accent/40 sm:bottom-8 sm:right-8" />
+            </motion.div>
+          </div>
+
+          {/* left: character identity + skill sheet (outer centres, inner is the
+              group the tick slides off-screen on scroll) */}
+          <div className="absolute left-8 top-1/2 max-w-md -translate-y-1/2 sm:left-16 sm:max-w-xl">
+           <div ref={hudPanelRef} className="will-change-transform" style={{ opacity: 1 }}>
+            <motion.div initial="hidden" animate={heroReady ? "visible" : "hidden"} variants={hudContainer}>
+              <motion.div variants={hudItem} className="font-mono text-[10px] uppercase tracking-[0.45em] text-accent/70">
+                ✦ Character Select
+              </motion.div>
+              <motion.h1
+                variants={hudItem}
+                className="mt-2 font-display text-6xl font-extrabold uppercase leading-none tracking-tight text-ink [text-shadow:0_4px_30px_rgba(0,0,0,0.85)] sm:text-7xl"
+              >
+                {content.hero.name}
+              </motion.h1>
+              {/* accent underline draws in beneath the name */}
+              <motion.div
+                variants={hudLine}
+                className="mt-3 h-px w-44 origin-left bg-gradient-to-r from-accent to-transparent"
+              />
+              <motion.div variants={hudItem} className="mt-3 font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                <span className="text-accent">CLASS</span> · {t(content.hero.role)}
+              </motion.div>
+              <motion.div
+                variants={hudItem}
+                className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted/70"
+              >
+                <span>EST. 2019</span>
+                <span className="text-muted/40">·</span>
+                <span>{t(content.contact.location)}</span>
+                <span className="text-muted/40">·</span>
+                <span className="flex items-center gap-1.5 text-ink/80">
+                  <span className="h-1.5 w-1.5 animate-pulseGlow rounded-full bg-accent" />
+                  {t(content.hero.status)}
+                </span>
+              </motion.div>
+
+              {/* skill matrix — cascades in row by row */}
+              <motion.div variants={hudRows} className="mt-7">
+                <motion.div variants={hudRow} className="font-mono text-[9px] uppercase tracking-[0.4em] text-muted/60">
+                  Skills
+                </motion.div>
+                {heroSkills.map((s) => (
+                  <motion.div
+                    key={s.cat}
+                    variants={hudRow}
+                    className="mt-2 grid grid-cols-[96px_1fr] items-baseline gap-x-4 border-b border-line/60 py-2 sm:grid-cols-[120px_1fr]"
+                  >
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent/90">{s.cat}</span>
+                    <span className="font-mono text-[11px] leading-relaxed tracking-wide text-ink/85 sm:text-xs">{s.items}</span>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </motion.div>
+           </div>
+          </div>
+
+          {/* press start (bottom-centre) — outer centres, inner is what the tick
+              drops away first as the walk begins */}
+          <div className="absolute bottom-9 left-1/2 -translate-x-1/2">
+            <div ref={hudStartRef} className="will-change-transform" style={{ opacity: 1 }}>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={heroReady ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+                transition={{ duration: 0.6, delay: 1.15 }}
+                className="flex flex-col items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.35em] text-accent"
+              >
+                <span className="flex items-center gap-2">{t(content.hero.startCta)}</span>
+                <span className="animate-bounce text-sm leading-none text-accent/70">⌄</span>
+              </motion.div>
+            </div>
+          </div>
+
         </div>
 
         {/* chapter: about — card-free kinetic type, right column */}
@@ -1209,13 +1444,112 @@ export default function World() {
           ))}
         </div>
 
-        {/* leave-a-memory trigger */}
+        {/* leave-a-memory trigger — fades in only once the room of memories has
+            resolved; muted by default, the accent only warms up on hover */}
         <button
           onClick={() => setFormOpen(true)}
-          className="pointer-events-auto absolute bottom-7 left-1/2 z-20 -translate-x-1/2 rounded-full border border-accent/30 bg-surface/60 px-5 py-2.5 font-mono text-xs uppercase tracking-[0.18em] text-accent backdrop-blur transition-colors hover:bg-accent/10"
+          aria-hidden={!memoryRoomActive || finaleActive}
+          className={`absolute bottom-8 left-1/2 z-20 -translate-x-1/2 rounded-full border border-line bg-surface/30 px-6 py-2.5 font-mono text-[11px] uppercase tracking-[0.24em] text-muted backdrop-blur-md transition-all duration-700 ease-out hover:border-accent/30 hover:text-ink ${
+            memoryRoomActive && !finaleActive
+              ? "pointer-events-auto translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-3 opacity-0"
+          }`}
         >
-          ✦ {t(content.memories.cta)}
+          {t(content.memories.cta)}
         </button>
+
+        {/* FINALE: the sign-off — a light "zolboo.xyz" signature writes itself in
+            the deep, then the contact resolves beneath it (ties to the loader) */}
+        <motion.div
+          aria-hidden={!finaleActive}
+          initial="hidden"
+          animate={finaleActive ? "visible" : "hidden"}
+          variants={finaleContainer}
+          className={`absolute inset-0 z-20 flex flex-col items-center justify-center px-6 text-center ${
+            finaleActive ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+        >
+          {/* centred cyan glow behind the signature (clean, perfectly centred) */}
+          <motion.div
+            variants={finaleGlow}
+            className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[58vh] w-[58vh] -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(45,230,230,0.16), rgba(45,230,230,0.05) 38%, transparent 66%)" }}
+          />
+
+          {/* the light signature — writes itself left→right, like the loader wordmark */}
+          <motion.span
+            variants={finaleSig}
+            className="mt-5 block font-logo text-5xl font-extrabold italic tracking-tight text-ink sm:text-7xl"
+            style={{ textShadow: "0 0 44px rgba(45,230,230,0.45)" }}
+          >
+            zolboo<span className="text-accent">.xyz</span>
+          </motion.span>
+
+          {/* a hairline that draws itself under the signature */}
+          <motion.div
+            variants={finaleLine}
+            className="mt-5 h-px w-40 origin-center"
+            style={{ background: "linear-gradient(90deg, transparent, rgba(45,230,230,0.7), transparent)" }}
+          />
+
+          <motion.p
+            variants={finaleItem}
+            className="mt-6 max-w-md text-sm leading-relaxed text-muted"
+          >
+            {t(content.finale.sub)}
+          </motion.p>
+
+          {/* editorial contact line — links, not chunky buttons */}
+          <motion.div
+            variants={finaleItem}
+            className="mt-8 flex flex-wrap items-center justify-center gap-x-7 gap-y-3 font-mono text-xs tracking-wide"
+          >
+            <a
+              href={`mailto:${content.contact.email}`}
+              className="group inline-flex items-center gap-2 text-ink transition-colors hover:text-accent"
+            >
+              <Mail size={14} strokeWidth={1.75} className="text-accent transition-transform group-hover:-translate-y-0.5" />
+              {content.contact.email}
+            </a>
+            <span className="hidden h-3 w-px bg-line sm:block" />
+            <a
+              href={`tel:${content.contact.phoneRaw}`}
+              className="inline-flex items-center gap-2 text-muted transition-colors hover:text-ink"
+            >
+              <Phone size={14} strokeWidth={1.75} />
+              {content.contact.phone}
+            </a>
+          </motion.div>
+
+          {/* socials */}
+          <motion.div variants={finaleItem} className="mt-8 flex items-center gap-3">
+            <a
+              href={content.contact.social.facebook}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Facebook"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent"
+            >
+              <Facebook size={15} strokeWidth={2} />
+            </a>
+            <a
+              href={content.contact.social.instagram}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Instagram"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent"
+            >
+              <Instagram size={15} strokeWidth={2} />
+            </a>
+          </motion.div>
+
+          <motion.div
+            variants={finaleItem}
+            className="mt-10 font-mono text-sm font-medium uppercase tracking-[0.35em] text-ink/90 [text-shadow:0_0_24px_rgba(45,230,230,0.35)]"
+          >
+            {t(content.finale.continued)}
+          </motion.div>
+        </motion.div>
 
         <MemoryForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleMemorySubmit} />
         {openMemory && (
