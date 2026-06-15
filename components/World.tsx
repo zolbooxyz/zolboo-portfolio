@@ -274,7 +274,9 @@ export default function World() {
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const el = mountRef.current;
-    if (!el || reduced || window.innerWidth < 768 || !hasWebGL()) {
+    // full WebGL experience everywhere (incl. mobile/touch) — only fall back when
+    // motion is unwanted or the device genuinely can't do WebGL
+    if (!el || reduced || !hasWebGL()) {
       setFallback(true);
       return;
     }
@@ -289,7 +291,10 @@ export default function World() {
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 420); // far reaches the finale galaxy (~157 units out)
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // phones report DPR up to ~3; the bokeh+bloom chain is fill-rate heavy, so cap
+    // tighter on narrow/touch screens to keep the scroll-scrub smooth
+    const touch = window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 768;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, touch ? 1.5 : 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.82;
     renderer.localClippingEnabled = true; // for the floor-emergence reveal
