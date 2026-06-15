@@ -160,6 +160,16 @@ const hudBracket = {
   visible: { opacity: 1, scale: 1, transition: { duration: 0.55, ease: EASE_OUT } },
 };
 
+// shared professional skill sheet (used by the desktop HUD + the mobile view)
+const SKILLS = [
+  { cat: "Frontend", items: "Next.js · React · TypeScript · Tailwind · Three.js · GSAP" },
+  { cat: "Backend & SaaS", items: "Node.js · Supabase · PostgreSQL · REST · Auth" },
+  { cat: "Automation", items: "n8n · Make.com · ManyChat · Zapier · Webhooks" },
+  { cat: "AI", items: "Claude · OpenAI · RAG · Agents · Chatbots · Image · Voice" },
+  { cat: "Design", items: "Figma · Framer Motion · UI/UX" },
+  { cat: "Foundations", items: "HTML · CSS · JavaScript · Git · SEO" },
+];
+
 export default function World() {
   const { t } = useLang();
 
@@ -171,15 +181,6 @@ export default function World() {
   const hudPanelRef = useRef<HTMLDivElement>(null);
   const hudStartRef = useRef<HTMLDivElement>(null);
 
-  // character-select skill matrix — a full, professional skill sheet
-  const heroSkills = [
-    { cat: "Frontend", items: "Next.js · React · TypeScript · Tailwind · Three.js · GSAP" },
-    { cat: "Backend & SaaS", items: "Node.js · Supabase · PostgreSQL · REST · Auth" },
-    { cat: "Automation", items: "n8n · Make.com · ManyChat · Zapier · Webhooks" },
-    { cat: "AI", items: "Claude · OpenAI · RAG · Agents · Chatbots · Image · Voice" },
-    { cat: "Design", items: "Figma · Framer Motion · UI/UX" },
-    { cat: "Foundations", items: "HTML · CSS · JavaScript · Git · SEO" },
-  ];
   const aboutRef = useRef<HTMLDivElement>(null);
   const journeyRef = useRef<HTMLDivElement>(null);
   const worksRef = useRef<HTMLDivElement>(null);
@@ -1302,7 +1303,7 @@ export default function World() {
                 <motion.div variants={hudRow} className="font-mono text-[9px] uppercase tracking-[0.4em] text-muted/60">
                   Skills
                 </motion.div>
-                {heroSkills.map((s) => (
+                {SKILLS.map((s) => (
                   <motion.div
                     key={s.cat}
                     variants={hudRow}
@@ -1607,33 +1608,158 @@ function PanelEyebrow({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Mobile / no-WebGL view: a clean, premium single-column portfolio that mirrors
+// the desktop content without the heavy 3D scroll experience.
 function WorldFallback() {
   const { t } = useLang();
+  const c = content;
   return (
-    <div className="mx-auto max-w-2xl px-6 py-20" style={{ filter: "grayscale(1)" }}>
-      <p className="font-display text-sm text-muted">{t(content.hero.greeting)}</p>
-      <h1 className="font-display text-5xl font-extrabold tracking-tight text-grad">
-        Zolboo<span className="text-accent">.</span>
-      </h1>
-      <p className="mt-4 text-muted">{t(content.hero.tagline)}</p>
-      <p className="mt-10 leading-relaxed text-ink/90">{t(content.about.body)}</p>
-      <h2 className="mt-12 font-mono text-xs uppercase tracking-[0.2em] text-accent">{t(content.projects.label)}</h2>
-      <div className="mt-4 space-y-6">
-        {content.projects.items.map((p) => (
-          <div key={p.id} className="border-t border-line pt-4">
-            <div className="font-mono text-xs text-muted">
-              {t(p.category)} · {p.year}
-            </div>
-            <h3 className="mt-1 font-display text-xl font-bold text-ink">{t(p.title)}</h3>
-            <p className="mt-1 text-sm text-muted">{t(p.desc)}</p>
+    <div className="min-h-screen bg-bg text-ink">
+      {/* top bar */}
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line/60 bg-bg/80 px-5 py-4 backdrop-blur-md">
+        <Logo className="text-lg" />
+        <LangToggle />
+      </header>
+
+      <main className="mx-auto max-w-md px-5 pb-24">
+        {/* hero */}
+        <section className="pb-12 pt-14">
+          <div className="font-mono text-[10px] uppercase tracking-[0.35em] text-accent/80">
+            ✦ {t(c.hero.role)}
           </div>
-        ))}
-      </div>
-      <h2 className="mt-12 font-mono text-xs uppercase tracking-[0.2em] text-accent">{t(content.contact.label)}</h2>
-      <div className="mt-3 space-y-2 font-mono text-sm">
-        <a href={`mailto:${content.contact.email}`} className="block text-ink">{content.contact.email}</a>
-        <a href={`tel:${content.contact.phoneRaw}`} className="block text-ink">{content.contact.phone}</a>
-      </div>
+          <h1 className="mt-4 font-display text-6xl font-extrabold uppercase leading-[0.95] tracking-tight">
+            {c.hero.name}
+          </h1>
+          <div className="mt-4 h-px w-28 bg-gradient-to-r from-accent to-transparent" />
+          <p className="mt-6 text-[15px] leading-relaxed text-muted">{t(c.hero.tagline)}</p>
+          <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted/70">
+            <span className="flex items-center gap-1.5 text-ink/80">
+              <span className="h-1.5 w-1.5 animate-pulseGlow rounded-full bg-accent" />
+              {t(c.hero.status)}
+            </span>
+            <span className="text-muted/40">·</span>
+            <span>{t(c.contact.location)}</span>
+          </div>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <a
+              href={`mailto:${c.contact.email}`}
+              className="rounded-full bg-accent px-5 py-2.5 font-mono text-xs font-semibold uppercase tracking-[0.15em] text-bg"
+            >
+              {t(c.hero.ctaContact)}
+            </a>
+            <a
+              href="#work"
+              className="rounded-full border border-line px-5 py-2.5 font-mono text-xs uppercase tracking-[0.15em] text-muted"
+            >
+              {t(c.hero.ctaWork)}
+            </a>
+          </div>
+        </section>
+
+        {/* skills */}
+        <section className="border-t border-line/60 py-10">
+          <PanelEyebrow>Skills</PanelEyebrow>
+          <div className="-mt-1">
+            {SKILLS.map((s) => (
+              <div key={s.cat} className="grid grid-cols-[88px_1fr] gap-x-3 border-b border-line/50 py-2.5">
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent/90">{s.cat}</span>
+                <span className="font-mono text-[11px] leading-relaxed text-ink/80">{s.items}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* selected work */}
+        <section id="work" className="scroll-mt-20 border-t border-line/60 py-10">
+          <PanelEyebrow>{t(c.projects.label)}</PanelEyebrow>
+          <h2 className="font-display text-2xl font-bold tracking-tight">{t(c.projects.heading)}</h2>
+          <div className="mt-6 space-y-6">
+            {c.projects.items.map((p) => (
+              <div key={p.id} className="border-t border-line pt-4">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-accent/80">
+                  {t(p.category)} · {p.year}
+                </div>
+                <h3 className="mt-1 font-display text-lg font-bold">{t(p.title)}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted">{t(p.desc)}</p>
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {p.tags.map((tag) => (
+                    <span key={tag} className="rounded border border-line px-2 py-0.5 font-mono text-[10px] text-muted">{tag}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* journey */}
+        <section className="border-t border-line/60 py-10">
+          <PanelEyebrow>{t(c.journey.label)}</PanelEyebrow>
+          <h2 className="font-display text-2xl font-bold tracking-tight">{t(c.journey.heading)}</h2>
+          <div className="mt-6 space-y-4 border-l border-white/12 pl-5">
+            {c.journey.items.map((it) => (
+              <div key={it.year} className="relative">
+                <span className="absolute -left-[23px] top-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
+                <div className="font-mono text-[10px] uppercase tracking-wider text-accent/80">{it.year}</div>
+                <div className="font-display text-base font-semibold">{t(it.title)}</div>
+                <div className="text-sm text-muted">{t(it.desc)}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* services */}
+        <section className="border-t border-line/60 py-10">
+          <PanelEyebrow>{t(c.services.label)}</PanelEyebrow>
+          <h2 className="font-display text-2xl font-bold tracking-tight">{t(c.services.heading)}</h2>
+          <div className="mt-6 grid gap-3">
+            {c.services.items.map((s) => (
+              <div key={s.id} className="rounded-xl border border-line bg-white/[0.02] p-4">
+                <div className="font-display text-base font-semibold">{t(s.title)}</div>
+                <div className="mt-1 text-sm leading-relaxed text-muted">{t(s.desc)}</div>
+                <div className="mt-2 font-mono text-[10px] uppercase tracking-wider text-accent/70">{s.tools}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* contact */}
+        <section className="border-t border-line/60 py-10">
+          <PanelEyebrow>{t(c.contact.label)}</PanelEyebrow>
+          <h2 className="font-display text-3xl font-extrabold leading-tight tracking-tight text-grad">{t(c.contact.heading)}</h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted">{t(c.contact.sub)}</p>
+          <div className="mt-6 space-y-3 font-mono text-sm">
+            <a href={`mailto:${c.contact.email}`} className="flex items-center gap-2.5 text-ink">
+              <Mail size={15} className="text-accent" />
+              {c.contact.email}
+            </a>
+            <a href={`tel:${c.contact.phoneRaw}`} className="flex items-center gap-2.5 text-ink">
+              <Phone size={15} className="text-accent" />
+              {c.contact.phone}
+            </a>
+          </div>
+          <div className="mt-6 flex gap-3">
+            <a href={c.contact.social.facebook} target="_blank" rel="noreferrer" aria-label="Facebook" className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-muted">
+              <Facebook size={17} />
+            </a>
+            <a href={c.contact.social.instagram} target="_blank" rel="noreferrer" aria-label="Instagram" className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-muted">
+              <Instagram size={17} />
+            </a>
+          </div>
+        </section>
+
+        {/* footer */}
+        <footer className="border-t border-line/60 pt-9 text-center">
+          <div className="font-logo text-2xl font-extrabold italic">
+            zolboo<span className="text-accent">.xyz</span>
+          </div>
+          <div className="mt-3 font-mono text-[11px] uppercase tracking-[0.3em] text-ink/80 [text-shadow:0_0_20px_rgba(45,230,230,0.3)]">
+            {t(c.finale.continued)}
+          </div>
+          <div className="mt-3 font-mono text-[10px] text-muted/50">
+            © {new Date().getFullYear()} {c.hero.name} · {t(c.footer.built)}
+          </div>
+        </footer>
+      </main>
     </div>
   );
 }
