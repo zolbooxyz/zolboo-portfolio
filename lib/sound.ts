@@ -201,62 +201,83 @@ class SoundFX {
     }
   }
 
-  // --- ambient pads: three evolving voices that crossfade with scroll -------
-  // void (cold/low) → memory room (warm cyan) → finale (resolved chord)
-  private ambient: { master: GainNode; voices: GainNode[] } | null = null;
+  // --- ambient air: a soft filtered-noise wind whose colour + level evolve
+  // with scroll. No pitch, no chords — just atmosphere, kept very quiet --------
+  private ambient: { master: GainNode; gain: GainNode; bp: BiquadFilterNode; lp: BiquadFilterNode } | null = null;
 
-  private buildVoice(freqs: number[], lowpass: number): GainNode {
-    const ctx = this.ctx!;
-    const g = ctx.createGain();
-    g.gain.value = 0;
-    const filt = ctx.createBiquadFilter();
-    filt.type = "lowpass";
-    filt.frequency.value = lowpass;
-    filt.Q.value = 0.6;
-    freqs.forEach((f, i) => {
-      const o = ctx.createOscillator();
-      o.type = "sawtooth";
-      o.frequency.value = f;
-      o.detune.value = (i % 2 === 0 ? 1 : -1) * (4 + i * 2); // gentle chorus
-      o.connect(filt);
-      o.start();
-    });
-    filt.connect(g);
-    return g;
-  }
-
-  /** start the looping ambient bed (idempotent; needs a running context) */
+  /** start the looping airy bed (idempotent; needs a running context) */
   ensureAmbient() {
     if (this.ambient || this.reduced) return;
     this.init();
     if (!this.ctx || !this.master || this.ctx.state !== "running") return;
-    const ambMaster = this.ctx.createGain();
-    ambMaster.gain.value = this.muted ? 0 : 1;
-    ambMaster.connect(this.master);
-    const voidV = this.buildVoice([55, 82.5, 110], 360); // A1 · E2 · A2 — cold drone
-    const roomV = this.buildVoice([110, 164.81, 220, 277.18], 880); // A2 · E3 · A3 · C#4 — cyan pad
-    const finV = this.buildVoice([130.81, 196, 261.63, 329.63], 1150); // C3 · G3 · C4 · E4 — resolved
-    voidV.connect(ambMaster);
-    roomV.connect(ambMaster);
-    finV.connect(ambMaster);
-    this.ambient = { master: ambMaster, voices: [voidV, roomV, finV] };
+    const ctx = this.ctx;
+
+    // a few seconds of brown noise (smoother, windier than white) on a loop
+    const secs = 4;
+    const len = ctx.sampleRate * secs;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const white = Math.random() * 2 - 1;
+      last = (last + 0.02 * white) / 1.02;
+      d[i] = last * 3.2;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.Q.value = 0.8;
+    bp.frequency.value = 300;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 600;
+
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+
+    const master = ctx.createGain();
+    master.gain.value = this.muted ? 0 : 1;
+
+    src.connect(bp);
+    bp.connect(lp);
+    lp.connect(gain);
+    gain.connect(master);
+    master.connect(this.master);
+    src.start();
+
+    // slow gusts: an LFO wanders the bandpass centre so the wind breathes
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.07;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 110;
+    lfo.connect(lfoGain);
+    lfoGain.connect(bp.frequency);
+    lfo.start();
+
+    this.ambient = { master, gain, bp, lp };
   }
 
-  /** crossfade the three pads to scroll progress p (0..1) */
+  /** shift the wind's colour + level with scroll progress p (0..1) */
   setAmbientProgress(p: number) {
     if (!this.ambient || !this.ctx) return;
     const ss = (a: number, b: number) => {
       const t = Math.max(0, Math.min(1, (p - a) / (b - a)));
       return t * t * (3 - 2 * t);
     };
-    const w0 = 1 - ss(0.42, 0.6); // void
-    const w1 = ss(0.46, 0.62) * (1 - ss(0.86, 0.96)); // room
-    const w2 = ss(0.86, 0.96); // finale
-    const lvl = 0.05; // quiet — sits well under the SFX
+    const w0 = 1 - ss(0.42, 0.6); // void — dark, low
+    const w1 = ss(0.46, 0.62) * (1 - ss(0.86, 0.96)); // room — open, airy
+    const w2 = ss(0.86, 0.96); // finale — settled
+    const norm = w0 + w1 + w2 || 1;
+    const bpF = (w0 * 220 + w1 * 760 + w2 * 480) / norm;
+    const lpF = (w0 * 480 + w1 * 1500 + w2 * 1000) / norm;
+    const lvl = (0.028 * (w0 * 0.7 + w1 * 1.0 + w2 * 0.85)) / norm; // very quiet
     const t = this.ctx.currentTime;
-    this.ambient.voices[0].gain.setTargetAtTime(w0 * lvl, t, 0.5);
-    this.ambient.voices[1].gain.setTargetAtTime(w1 * lvl, t, 0.5);
-    this.ambient.voices[2].gain.setTargetAtTime(w2 * lvl * 1.2, t, 0.5);
+    this.ambient.bp.frequency.setTargetAtTime(bpF, t, 0.7);
+    this.ambient.lp.frequency.setTargetAtTime(lpF, t, 0.7);
+    this.ambient.gain.gain.setTargetAtTime(lvl, t, 0.7);
   }
 
   // --- spatial memory cubes: a small pool of HRTF-panned voices that attach to
