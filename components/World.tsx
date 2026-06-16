@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -19,6 +19,10 @@ import { Mail, Phone, Facebook, Instagram } from "lucide-react";
 import Logo from "@/components/Logo";
 import MemoryForm from "@/components/MemoryForm";
 import MemoryCard from "@/components/MemoryCard";
+import SoundToggle from "@/components/SoundToggle";
+import HudOverlay from "@/components/HudOverlay";
+import ScrambleText from "@/components/ScrambleText";
+import { sfx } from "@/lib/sound";
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -103,32 +107,8 @@ function hasWebGL(): boolean {
   }
 }
 
-// --- FINALE sign-off motion (framer-motion variants) ---
+// shared easing for the HUD entrance variants below
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
-const finaleContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.34, delayChildren: 0.15 } },
-};
-const finaleItem = {
-  hidden: { opacity: 0, y: 20, filter: "blur(8px)" },
-  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.8, ease: EASE_OUT } },
-};
-const finaleSig = {
-  hidden: { clipPath: "inset(0 100% 0 0)", opacity: 0 },
-  visible: {
-    clipPath: "inset(0 0% 0 0)",
-    opacity: 1,
-    transition: { clipPath: { duration: 1.5, ease: [0.65, 0, 0.35, 1] }, opacity: { duration: 0.4 } },
-  },
-};
-const finaleLine = {
-  hidden: { scaleX: 0, opacity: 0 },
-  visible: { scaleX: 1, opacity: 1, transition: { duration: 0.9, ease: EASE_OUT } },
-};
-const finaleGlow = {
-  hidden: { opacity: 0, scale: 0.85 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 1.6, ease: EASE_OUT } },
-};
 
 // --- HERO character-select HUD entrance (framer-motion variants) ---
 const hudContainer = {
@@ -142,14 +122,6 @@ const hudItem = {
 const hudLine = {
   hidden: { scaleX: 0, opacity: 0 },
   visible: { scaleX: 1, opacity: 1, transition: { duration: 0.8, ease: EASE_OUT } },
-};
-const hudRows = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.07 } },
-};
-const hudRow = {
-  hidden: { opacity: 0, x: -24, filter: "blur(5px)" },
-  visible: { opacity: 1, x: 0, filter: "blur(0px)", transition: { duration: 0.5, ease: EASE_OUT } },
 };
 const hudBracketWrap = {
   hidden: {},
@@ -180,6 +152,8 @@ export default function World() {
   const hudBracketsRef = useRef<HTMLDivElement>(null);
   const hudPanelRef = useRef<HTMLDivElement>(null);
   const hudStartRef = useRef<HTMLDivElement>(null);
+  const hudSkillsRef = useRef<HTMLDivElement>(null); // skill matrix — scrubbed in as the figure walks
+  const hudSkillRowsRef = useRef<HTMLDivElement>(null); // its rows, staggered per scroll
 
   const aboutRef = useRef<HTMLDivElement>(null);
   const journeyRef = useRef<HTMLDivElement>(null);
@@ -229,6 +203,8 @@ export default function World() {
   const memoriesRef = useRef<Memory[]>([]); // live copy the WebGL tick can read
   const cubeCentersRef = useRef<THREE.Vector3[]>([]); // lattice cube world centres
   const labelEls = useRef<Map<string, HTMLButtonElement>>(new Map()); // nickname label DOM
+  const reticleRef = useRef<HTMLDivElement>(null); // FUI targeting reticle on the hovered cube
+  const reticleLabelRef = useRef<HTMLDivElement>(null); // its coordinate/ID readout
   // returns the cube indices currently ON SCREEN (centred, in front, near) so a
   // new memory lands in a cube the visitor can actually see right now
   const visibleCubesRef = useRef<(() => number[]) | null>(null);
@@ -274,9 +250,11 @@ export default function World() {
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const el = mountRef.current;
+    // debug: /?flat forces the simple (no-WebGL) view so it can be previewed
+    const forceFlat = new URLSearchParams(window.location.search).has("flat");
     // full WebGL experience everywhere (incl. mobile/touch) — only fall back when
     // motion is unwanted or the device genuinely can't do WebGL
-    if (!el || reduced || !hasWebGL()) {
+    if (!el || reduced || forceFlat || !hasWebGL()) {
       setFallback(true);
       return;
     }
@@ -545,6 +523,8 @@ export default function World() {
         const g = new THREE.Group();
         g.position.copy(center);
         g.userData.memId = mm.id; // for click raycasting
+        g.userData.bornAt = performance.now(); // drives the materialize pop in the tick
+        g.scale.setScalar(0.001); // starts collapsed, springs to full size
         g.add(new THREE.Mesh(occBoxGeo, occFaceMat));
         g.add(new THREE.LineSegments(occEdgeGeo, occEdgeMat));
         occGroup.add(g);
@@ -774,9 +754,10 @@ export default function World() {
     focusCubeRef.current = (cubeIdx) => {
       const ctr = cubeCenters[cubeIdx];
       if (!ctr) return;
-      // always settle directly IN FRONT of the cube (its +z face, square to the
-      // screen) for a clean head-on framing — not at an angle from the current side
-      focus.pos.set(ctr.x, ctr.y, ctr.z + 16);
+      // settle just OUTSIDE the cube's back (-z) face, square and head-on, with
+      // the cube centred on screen — close enough that the box fills the frame.
+      // cube half-edge is 4, so -12 sits ~8 units off the face: right outside it.
+      focus.pos.set(ctr.x, ctr.y, ctr.z - 12);
       focus.look.copy(ctr);
       focus.active = true;
     };
@@ -786,6 +767,7 @@ export default function World() {
 
     // click a glowing glass cube directly (raycast) → fly to it + open the card,
     // even when its nickname label isn't currently on screen
+    let hoveredCubeId: string | null = null; // which memory cube the pointer is over (drives the reticle)
     const raycaster = new THREE.Raycaster();
     const clickNdc = new THREE.Vector2();
     const onSceneClick = (e: MouseEvent) => {
@@ -801,10 +783,37 @@ export default function World() {
       if (!id) return;
       const mem = memoriesRef.current.find((x) => x.id === id);
       if (!mem) return;
+      sfx.play("lock");
       focusCubeRef.current?.(mem.cube);
       window.setTimeout(() => openMemoryRef.current(mem), 850);
     };
     el.addEventListener("click", onSceneClick);
+
+    // hover raycast → drive the targeting reticle (read in the tick) + lock cursor
+    const hoverRay = new THREE.Raycaster();
+    const hoverNdc = new THREE.Vector2();
+    const onHover = (e: PointerEvent) => {
+      if (gridUniforms.uReveal.value < 0.2) {
+        if (hoveredCubeId) { hoveredCubeId = null; el.style.cursor = ""; }
+        return;
+      }
+      hoverNdc.x = (e.clientX / stageW) * 2 - 1;
+      hoverNdc.y = -(e.clientY / stageH) * 2 + 1;
+      hoverRay.setFromCamera(hoverNdc, camera);
+      const hits = hoverRay.intersectObjects(occGroup.children, true);
+      let id: string | null = null;
+      if (hits.length) {
+        let o: THREE.Object3D | null = hits[0].object;
+        while (o && !o.userData.memId) o = o.parent;
+        id = (o?.userData.memId as string | undefined) ?? null;
+      }
+      if (id !== hoveredCubeId) {
+        hoveredCubeId = id;
+        el.style.cursor = id ? "pointer" : "";
+        if (id) sfx.play("hover");
+      }
+    };
+    el.addEventListener("pointermove", onHover);
 
     // scratch + targets for the closing "point forward" arm pose. Local-space
     // euler targets (radians) the arm bones slerp toward as the walk finishes;
@@ -955,6 +964,8 @@ export default function World() {
       ref.style.pointerEvents = inP > 0.6 && outP < 0.4 ? "auto" : "none";
     };
 
+    const skillTicked = new Array(SKILLS.length).fill(false); // soft blip as each skill row locks in
+
     const tick = () => {
       t += 0.016;
       if (figure) {
@@ -1103,13 +1114,14 @@ export default function World() {
 
       // the lattice resolves in the moment the figure stops walking (p≈0.6) and
       // the camera-only move begins — it glows up around the standing figure,
-      // then the dive carries us into it. In the finale it fades back out as the
-      // galaxy takes over (occGroup opacity below follows uReveal automatically).
+      // then the dive carries us into it. In the finale the lattice STAYS lit so
+      // the sign-off keeps the room-of-memories atmosphere: the camera pulls back
+      // to face the front wall of cyan cubes, and the words type onto that wall.
       const revealFinale = smooth(0.86, 1.0, p);
-      gridUniforms.uReveal.value = smooth(0.6, 0.8, p) * (1 - revealFinale);
+      gridUniforms.uReveal.value = smooth(0.6, 0.8, p);
 
-      // FINALE sign-off: the lattice fades to a clean void; the signature + glow
-      // are handled by the DOM overlay (gated on finaleActive below).
+      // FINALE sign-off: the cyan wireframe wall holds; the signature + contact
+      // type themselves onto it via the DOM overlay (gated on finaleActive below).
 
       // surface the "leave a memory" trigger once the room has clearly resolved;
       // flip React state only on the crossing so we don't setState every frame
@@ -1117,6 +1129,7 @@ export default function World() {
       if (roomActive !== memoryRoomActiveRef.current) {
         memoryRoomActiveRef.current = roomActive;
         setMemoryRoomActive(roomActive);
+        sfx.play(roomActive ? "open" : "close"); // "sector change" cue as the room resolves
       }
 
       // surface the contact finale once the sign-off space has resolved
@@ -1124,6 +1137,7 @@ export default function World() {
       if (finOn !== finaleActiveRef.current) {
         finaleActiveRef.current = finOn;
         setFinaleActive(finOn);
+        if (finOn) sfx.play("boot"); // power-up swell as the sign-off wall comes online
       }
 
       // project each visitor memory's nickname label from its cube → screen, so
@@ -1136,6 +1150,25 @@ export default function World() {
       occFaceMat.opacity = 0.13 * reveal;
       occEdgeMat.opacity = 0.95 * reveal;
       occGroup.visible = reveal > 0.01;
+
+      // materialize pop: a newly added cube springs from collapsed → full with a
+      // soft overshoot (easeOutBack), so a fresh memory visibly "forms" in place
+      const nowMs = performance.now();
+      for (let i = 0; i < occGroup.children.length; i++) {
+        const g = occGroup.children[i] as THREE.Object3D;
+        const born = g.userData.bornAt as number | undefined;
+        if (born == null) continue;
+        const a = (nowMs - born) / 900; // 0.9s materialize
+        if (a >= 1) {
+          g.scale.setScalar(1);
+          g.userData.bornAt = undefined; // settle: stop animating
+        } else {
+          const c1 = 1.70158;
+          const c3 = c1 + 1;
+          const s = 1 + c3 * Math.pow(a - 1, 3) + c1 * Math.pow(a - 1, 2); // easeOutBack
+          g.scale.setScalar(Math.max(0.001, s));
+        }
+      }
 
       const centers = cubeCentersRef.current;
       if (reveal > 0.01 && centers.length) {
@@ -1161,12 +1194,35 @@ export default function World() {
           }
           const sx = (labelV.x * 0.5 + 0.5) * stageW;
           const sy = (-labelV.y * 0.5 + 0.5) * stageH;
-          elx.style.transform = `translate(-50%,-50%) translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`;
+          const popScale = (0.8 + 0.2 * op).toFixed(3); // pops up as it fades in on approach
+          elx.style.transform = `translate(-50%,-50%) translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) scale(${popScale})`;
           elx.style.opacity = op.toFixed(2);
           elx.style.pointerEvents = op > 0.45 ? "auto" : "none";
         }
       } else {
         labelEls.current.forEach((elx) => { elx.style.opacity = "0"; elx.style.pointerEvents = "none"; });
+      }
+
+      // targeting reticle: lock onto the hovered cube, projecting its centre to
+      // screen each frame so it tracks while the camera moves
+      const ret = reticleRef.current;
+      if (ret) {
+        const hm = hoveredCubeId ? memoriesRef.current.find((m) => m.id === hoveredCubeId) : null;
+        const hc = hm ? centers[hm.cube] : null;
+        if (hm && hc && reveal > 0.2) {
+          labelV.copy(hc).project(camera);
+          if (labelV.z < 1) {
+            const rx = (labelV.x * 0.5 + 0.5) * stageW;
+            const ry = (-labelV.y * 0.5 + 0.5) * stageH;
+            ret.style.transform = `translate(-50%,-50%) translate(${rx.toFixed(1)}px,${ry.toFixed(1)}px)`;
+            ret.style.opacity = "1";
+            if (reticleLabelRef.current) {
+              reticleLabelRef.current.textContent = `NODE ${hm.id.slice(0, 4).toUpperCase()} · ${hc.x | 0} ${hc.y | 0} ${hc.z | 0}`;
+            }
+          } else ret.style.opacity = "0";
+        } else {
+          ret.style.opacity = "0";
+        }
       }
 
       // keep the figure in focus; everything else softly blurs
@@ -1184,6 +1240,33 @@ export default function World() {
       setOverlay(hudBracketsRef.current, clamp01(1 - smooth(0.0, 0.1, p)), 0, 0);
       setOverlay(hudPanelRef.current, clamp01(1 - smooth(0.04, 0.17, p)), -60, 0);
 
+      // SKILL MATRIX (right) — builds row-by-row in sync with the walk, then clears
+      // before the dive. Each row wipes + slides in from the right, staggered.
+      const skWrap = hudSkillsRef.current;
+      if (skWrap) {
+        const skOut = smooth(0.5, 0.6, p); // whole matrix retreats as the dive nears
+        skWrap.style.opacity = (smooth(0.15, 0.2, p) * (1 - skOut)).toFixed(3);
+        const rows = hudSkillRowsRef.current?.children;
+        if (rows) {
+          for (let i = 0; i < rows.length; i++) {
+            const r = rows[i] as HTMLElement;
+            const rin = ease(clamp01((p - (0.2 + i * 0.045)) / 0.06)); // staggered scrub-in
+            const vis = rin * (1 - skOut);
+            const x = (1 - rin) * 46 + skOut * 64; // slide in from the right, exit further right
+            r.style.opacity = vis.toFixed(3);
+            r.style.transform = `translate3d(${x.toFixed(1)}px,0,0)`;
+            r.style.clipPath = `inset(0 0 0 ${((1 - rin) * 100).toFixed(1)}%)`; // wipe left→right
+            // a soft blip the moment each row locks in (reset when scrolled back up)
+            if (rin > 0.6 && !skillTicked[i]) {
+              skillTicked[i] = true;
+              sfx.play("tick");
+            } else if (rin < 0.1 && skillTicked[i]) {
+              skillTicked[i] = false;
+            }
+          }
+        }
+      }
+
       // chapter sections (about/journey/works/contact) are deferred for now —
       // re-enable by wiring their reveals back to scroll beats once they return.
 
@@ -1197,6 +1280,7 @@ export default function World() {
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onMouse);
       el.removeEventListener("click", onSceneClick);
+      el.removeEventListener("pointermove", onHover);
       ro.disconnect();
       starGeo.dispose();
       grid.geometry.dispose();
@@ -1251,8 +1335,17 @@ export default function World() {
           >
             <Logo className="text-xl" />
           </button>
-          <LangToggle />
+          <div className="flex items-center gap-2.5">
+            <SoundToggle />
+            <LangToggle />
+          </div>
         </div>
+
+        {/* persistent FUI chrome: scanlines, frame, live telemetry */}
+        <HudOverlay />
+
+        {/* scroll-progress rail — a cyan spine that fills through the journey */}
+        <ScrollRail />
 
         {/* hero greeting — a clean boot terminal (no background) that types itself
             out; the WebGL tick fades it as the figure rises */}
@@ -1273,13 +1366,13 @@ export default function World() {
            <div ref={hudPanelRef} className="will-change-transform" style={{ opacity: 1 }}>
             <motion.div initial="hidden" animate={heroReady ? "visible" : "hidden"} variants={hudContainer}>
               <motion.div variants={hudItem} className="font-mono text-[10px] uppercase tracking-[0.45em] text-accent/70">
-                ✦ Character Select
+                ✦ <ScrambleText text="Character Select" active={heroReady} speed={34} />
               </motion.div>
               <motion.h1
                 variants={hudItem}
                 className="mt-2 font-display text-6xl font-extrabold uppercase leading-none tracking-tight text-ink [text-shadow:0_4px_30px_rgba(0,0,0,0.85)] sm:text-7xl"
               >
-                {content.hero.name}
+                <ScrambleText text={content.hero.name} active={heroReady} speed={70} onReveal={() => sfx.play("tick")} />
               </motion.h1>
               {/* accent underline draws in beneath the name */}
               <motion.div
@@ -1287,40 +1380,50 @@ export default function World() {
                 className="mt-3 h-px w-44 origin-left bg-gradient-to-r from-accent to-transparent"
               />
               <motion.div variants={hudItem} className="mt-3 font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-                <span className="text-accent">CLASS</span> · {t(content.hero.role)}
+                <span className="text-accent">CLASS</span> · <ScrambleText text={t(content.hero.role)} active={heroReady} speed={20} />
               </motion.div>
               <motion.div
                 variants={hudItem}
                 className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted/70"
               >
-                <span>EST. 2019</span>
+                <span><ScrambleText text="EST. 2019" active={heroReady} speed={26} /></span>
                 <span className="text-muted/40">·</span>
-                <span>{t(content.contact.location)}</span>
+                <span><ScrambleText text={t(content.contact.location)} active={heroReady} speed={22} /></span>
                 <span className="text-muted/40">·</span>
                 <span className="flex items-center gap-1.5 text-ink/80">
                   <span className="h-1.5 w-1.5 animate-pulseGlow rounded-full bg-accent" />
-                  {t(content.hero.status)}
+                  <ScrambleText text={t(content.hero.status)} active={heroReady} speed={20} />
                 </span>
               </motion.div>
 
-              {/* skill matrix — cascades in row by row */}
-              <motion.div variants={hudRows} className="mt-7">
-                <motion.div variants={hudRow} className="font-mono text-[9px] uppercase tracking-[0.4em] text-muted/60">
-                  Skills
-                </motion.div>
-                {SKILLS.map((s) => (
-                  <motion.div
-                    key={s.cat}
-                    variants={hudRow}
-                    className="mt-2 grid grid-cols-[96px_1fr] items-baseline gap-x-4 border-b border-line/60 py-2 sm:grid-cols-[120px_1fr]"
-                  >
-                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent/90">{s.cat}</span>
-                    <span className="font-mono text-[11px] leading-relaxed tracking-wide text-ink/85 sm:text-xs">{s.items}</span>
-                  </motion.div>
-                ))}
-              </motion.div>
             </motion.div>
            </div>
+          </div>
+
+          {/* SKILL MATRIX — pulled out of the identity panel so it can build on the
+              RIGHT in sync with the figure's walk: each row scrubs in one-by-one as
+              you scroll the walk (p≈0.18→0.5), then clears before the dive */}
+          <div
+            ref={hudSkillsRef}
+            className="absolute right-8 top-1/2 hidden max-w-[18rem] -translate-y-1/2 sm:right-16 sm:block lg:right-24"
+            style={{ opacity: 0 }}
+          >
+            <div className="mb-3 flex items-center justify-end gap-2 font-mono text-[9px] uppercase tracking-[0.4em] text-accent/70">
+              <span className="h-1 w-1 animate-pulseGlow rounded-full bg-accent" />
+              <ScrambleText text="Skill Matrix" active={heroReady} speed={30} />
+            </div>
+            <div ref={hudSkillRowsRef}>
+              {SKILLS.map((s) => (
+                <div
+                  key={s.cat}
+                  className="border-b border-line/50 py-2 text-right will-change-transform"
+                  style={{ opacity: 0 }}
+                >
+                  <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent/90">{s.cat}</div>
+                  <div className="font-mono text-[11px] leading-relaxed tracking-wide text-ink/80">{s.items}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* press start (bottom-centre) — outer centres, inner is what the tick
@@ -1333,7 +1436,7 @@ export default function World() {
                 transition={{ duration: 0.6, delay: 1.15 }}
                 className="flex flex-col items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.35em] text-accent"
               >
-                <span className="flex items-center gap-2">{t(content.hero.startCta)}</span>
+                <span className="flex items-center gap-2"><ScrambleText text={t(content.hero.startCta)} active={heroReady} speed={24} /></span>
                 <span className="animate-bounce text-sm leading-none text-accent/70">⌄</span>
               </motion.div>
             </div>
@@ -1439,9 +1542,11 @@ export default function World() {
                 else labelEls.current.delete(mem.id);
               }}
               onClick={() => {
+                sfx.play("lock");
                 focusCubeRef.current?.(mem.cube); // fly the camera in to the cube
                 window.setTimeout(() => setOpenMemory(mem), 850); // card after it arrives
               }}
+              onPointerEnter={() => sfx.play("hover")}
               style={{ position: "absolute", top: 0, left: 0, opacity: 0 }}
               className="whitespace-nowrap font-mono text-xs tracking-[0.18em] text-accent text-glow transition-colors hover:text-ink"
             >
@@ -1450,112 +1555,58 @@ export default function World() {
           ))}
         </div>
 
-        {/* leave-a-memory trigger — fades in only once the room of memories has
-            resolved; muted by default, the accent only warms up on hover */}
+        {/* targeting reticle — locks onto the cube under the pointer (positioned
+            by the tick), with a live NODE id + coordinate readout */}
+        <div className="pointer-events-none absolute inset-0 z-[15]">
+          <div ref={reticleRef} style={{ position: "absolute", top: 0, left: 0, opacity: 0 }} className="transition-opacity duration-150">
+            <div className="relative h-16 w-16">
+              <span className="absolute left-0 top-0 h-3 w-3 border-l-2 border-t-2 border-accent" />
+              <span className="absolute right-0 top-0 h-3 w-3 border-r-2 border-t-2 border-accent" />
+              <span className="absolute bottom-0 left-0 h-3 w-3 border-b-2 border-l-2 border-accent" />
+              <span className="absolute bottom-0 right-0 h-3 w-3 border-b-2 border-r-2 border-accent" />
+              <span className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_8px_rgba(45,230,230,0.9)]" />
+              <div
+                ref={reticleLabelRef}
+                className="absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.2em] text-accent/80"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* leave-a-memory trigger — fades in once the room of memories resolves;
+            a prominent, glowing accent pill so it clearly invites a tap */}
         <button
-          onClick={() => setFormOpen(true)}
+          onClick={() => {
+            sfx.play("open");
+            setFormOpen(true);
+          }}
+          onPointerEnter={() => sfx.play("hover")}
           aria-hidden={!memoryRoomActive || finaleActive}
-          className={`absolute bottom-8 left-1/2 z-20 -translate-x-1/2 rounded-full border border-line bg-surface/30 px-6 py-2.5 font-mono text-[11px] uppercase tracking-[0.24em] text-muted backdrop-blur-md transition-all duration-700 ease-out hover:border-accent/30 hover:text-ink ${
+          className={`group absolute bottom-8 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-accent/60 bg-accent/15 px-7 py-3 font-mono text-[12px] font-semibold uppercase tracking-[0.24em] text-accent shadow-[0_0_30px_-6px_rgba(45,230,230,0.55)] backdrop-blur-md transition-all duration-700 ease-out hover:border-accent hover:bg-accent/25 hover:text-ink hover:shadow-[0_0_44px_-6px_rgba(45,230,230,0.8)] ${
             memoryRoomActive && !finaleActive
               ? "pointer-events-auto translate-y-0 opacity-100"
               : "pointer-events-none translate-y-3 opacity-0"
           }`}
         >
-          {t(content.memories.cta)}
+          <span className="h-1.5 w-1.5 animate-pulseGlow rounded-full bg-accent shadow-[0_0_10px_rgba(45,230,230,0.9)]" />
+          <ScrambleText text={t(content.memories.cta)} active={memoryRoomActive} speed={22} />
         </button>
 
-        {/* FINALE: the sign-off — a light "zolboo.xyz" signature writes itself in
-            the deep, then the contact resolves beneath it (ties to the loader) */}
-        <motion.div
+        {/* FINALE: the sign-off — the closing words type themselves onto the
+            wireframe wall, terminal-style, and come to rest there */}
+        <div
           aria-hidden={!finaleActive}
-          initial="hidden"
-          animate={finaleActive ? "visible" : "hidden"}
-          variants={finaleContainer}
-          className={`absolute inset-0 z-20 flex flex-col items-center justify-center px-6 text-center ${
-            finaleActive ? "pointer-events-auto" : "pointer-events-none"
+          className={`absolute inset-0 z-20 flex items-center justify-center px-6 transition-opacity duration-700 ${
+            finaleActive ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
           }`}
         >
-          {/* centred cyan glow behind the signature (clean, perfectly centred) */}
-          <motion.div
-            variants={finaleGlow}
+          {/* centred cyan glow behind the wall */}
+          <div
             className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[58vh] w-[58vh] -translate-x-1/2 -translate-y-1/2 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(45,230,230,0.16), rgba(45,230,230,0.05) 38%, transparent 66%)" }}
+            style={{ background: "radial-gradient(circle, rgba(45,230,230,0.14), rgba(45,230,230,0.04) 40%, transparent 66%)" }}
           />
-
-          {/* the light signature — writes itself left→right, like the loader wordmark */}
-          <motion.span
-            variants={finaleSig}
-            className="mt-5 block font-logo text-5xl font-extrabold italic tracking-tight text-ink sm:text-7xl"
-            style={{ textShadow: "0 0 44px rgba(45,230,230,0.45)" }}
-          >
-            zolboo<span className="text-accent">.xyz</span>
-          </motion.span>
-
-          {/* a hairline that draws itself under the signature */}
-          <motion.div
-            variants={finaleLine}
-            className="mt-5 h-px w-40 origin-center"
-            style={{ background: "linear-gradient(90deg, transparent, rgba(45,230,230,0.7), transparent)" }}
-          />
-
-          <motion.p
-            variants={finaleItem}
-            className="mt-6 max-w-md text-sm leading-relaxed text-muted"
-          >
-            {t(content.finale.sub)}
-          </motion.p>
-
-          {/* editorial contact line — links, not chunky buttons */}
-          <motion.div
-            variants={finaleItem}
-            className="mt-8 flex flex-wrap items-center justify-center gap-x-7 gap-y-3 font-mono text-xs tracking-wide"
-          >
-            <a
-              href={`mailto:${content.contact.email}`}
-              className="group inline-flex items-center gap-2 text-ink transition-colors hover:text-accent"
-            >
-              <Mail size={14} strokeWidth={1.75} className="text-accent transition-transform group-hover:-translate-y-0.5" />
-              {content.contact.email}
-            </a>
-            <span className="hidden h-3 w-px bg-line sm:block" />
-            <a
-              href={`tel:${content.contact.phoneRaw}`}
-              className="inline-flex items-center gap-2 text-muted transition-colors hover:text-ink"
-            >
-              <Phone size={14} strokeWidth={1.75} />
-              {content.contact.phone}
-            </a>
-          </motion.div>
-
-          {/* socials */}
-          <motion.div variants={finaleItem} className="mt-8 flex items-center gap-3">
-            <a
-              href={content.contact.social.facebook}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Facebook"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent"
-            >
-              <Facebook size={15} strokeWidth={2} />
-            </a>
-            <a
-              href={content.contact.social.instagram}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Instagram"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent"
-            >
-              <Instagram size={15} strokeWidth={2} />
-            </a>
-          </motion.div>
-
-          <motion.div
-            variants={finaleItem}
-            className="mt-10 font-mono text-sm font-medium uppercase tracking-[0.35em] text-ink/90 [text-shadow:0_0_24px_rgba(45,230,230,0.35)]"
-          >
-            {t(content.finale.continued)}
-          </motion.div>
-        </motion.div>
+          <FinaleWall active={finaleActive} />
+        </div>
 
         <MemoryForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleMemorySubmit} />
         {openMemory && (
@@ -1572,10 +1623,94 @@ export default function World() {
   );
 }
 
+// Minimal scroll-progress rail — a slim cyan spine on the right that fills as
+// you move through the experience, with ticks at the real beats. Click to jump.
+const RAIL_BEATS = [
+  { p: 0.0, label: "INTRO" },
+  { p: 0.62, label: "MEMORIES" },
+  { p: 0.92, label: "SIGN-OFF" },
+];
+
+function ScrollRail() {
+  const [p, setP] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        setP(max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0);
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  const jump = (tp: number) => {
+    sfx.play("click");
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    window.scrollTo({ top: tp * max, behavior: "smooth" });
+  };
+
+  let active = 0;
+  for (let i = 0; i < RAIL_BEATS.length; i++) if (p >= RAIL_BEATS[i].p - 0.04) active = i;
+
+  return (
+    <div
+      className="pointer-events-none absolute right-6 top-1/2 z-20 hidden -translate-y-1/2 flex-col items-center transition-opacity duration-500 sm:right-9 sm:flex"
+      style={{ opacity: p > 0.01 ? 1 : 0 }}
+    >
+      <div className="relative h-44 w-px bg-white/12">
+        {/* fill */}
+        <div
+          className="absolute left-0 top-0 w-px bg-gradient-to-b from-accent to-accent/40"
+          style={{ height: `${p * 100}%`, boxShadow: "0 0 8px rgba(45,230,230,0.6)" }}
+        />
+        {/* moving head */}
+        <div
+          className="absolute left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-accent"
+          style={{ top: `calc(${p * 100}% - 3px)`, boxShadow: "0 0 10px rgba(45,230,230,0.9)" }}
+        />
+        {/* beat ticks + labels */}
+        {RAIL_BEATS.map((b, i) => (
+          <button
+            key={b.label}
+            onClick={() => jump(b.p)}
+            onPointerEnter={() => sfx.play("hover")}
+            aria-label={b.label}
+            className="pointer-events-auto absolute left-1/2 -translate-x-1/2"
+            style={{ top: `${b.p * 100}%`, transform: "translate(-50%,-50%)" }}
+          >
+            <span
+              className={`block h-1.5 w-1.5 rounded-full border transition-all ${
+                i === active ? "scale-125 border-accent bg-accent" : "border-white/30 bg-bg"
+              }`}
+            />
+            <span
+              className={`absolute right-4 top-1/2 -translate-y-1/2 whitespace-nowrap text-right font-mono text-[9px] uppercase tracking-[0.3em] transition-all duration-300 ${
+                i === active ? "text-accent opacity-100" : "text-muted opacity-0"
+              }`}
+            >
+              {b.label}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LangToggle() {
   const { lang, toggle } = useLang();
   return (
-    <button onClick={toggle} aria-label="Toggle language" className="pointer-events-auto flex items-center gap-1 rounded-full border border-line bg-surface/70 px-1 py-1 font-mono text-xs backdrop-blur">
+    <button onClick={() => { sfx.play("click"); toggle(); }} onPointerEnter={() => sfx.play("hover")} aria-label="Toggle language" className="pointer-events-auto flex items-center gap-1 rounded-full border border-line bg-surface/70 px-1 py-1 font-mono text-xs backdrop-blur">
       <span className={`rounded-full px-2.5 py-1 ${lang === "mn" ? "bg-accent text-bg" : "text-muted"}`}>MN</span>
       <span className={`rounded-full px-2.5 py-1 ${lang === "en" ? "bg-accent text-bg" : "text-muted"}`}>EN</span>
     </button>
@@ -1585,21 +1720,50 @@ function LangToggle() {
 function DetailPanel({ id, onClose }: { id: string; onClose: () => void }) {
   const { t } = useLang();
   const p = content.projects.items.find((x) => x.id === id);
+
+  // close on Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   if (!p) return null;
   return (
-    <div className="pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-full max-w-md flex-col justify-center border-l border-line bg-bg/90 p-8 backdrop-blur-xl sm:p-12">
-      <button onClick={onClose} className="absolute right-6 top-6 font-mono text-xs text-muted transition-colors hover:text-accent">✕ хаах</button>
-      <PanelEyebrow>
-        {t(p.category)} · {p.year}
-      </PanelEyebrow>
-      <h2 className="font-display text-4xl font-bold tracking-tight text-ink">{t(p.title)}</h2>
-      <p className="mt-4 leading-relaxed text-muted">{t(p.desc)}</p>
-      {"clients" in p && p.clients ? <p className="mt-3 font-mono text-xs text-ink/60">{p.clients}</p> : null}
-      <div className="mt-6 flex flex-wrap gap-2">
-        {p.tags.map((tag) => (
-          <span key={tag} className="rounded-md border border-line bg-bg/40 px-2.5 py-1 font-mono text-[11px] text-ink/70">{tag}</span>
-        ))}
-      </div>
+    <div role="dialog" aria-modal="true" aria-label={t(p.title)} className="pointer-events-auto absolute inset-0 z-30">
+      {/* dim backdrop — click to dismiss */}
+      <motion.button
+        aria-label={t(content.memories.close)}
+        onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="absolute inset-0 bg-black/40"
+      />
+      <motion.div
+        initial={{ x: "100%", opacity: 0.4 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col justify-center border-l border-white/10 bg-bg/85 p-8 shadow-[-30px_0_80px_-30px_rgba(0,0,0,0.9)] backdrop-blur-2xl backdrop-saturate-150 sm:p-12"
+      >
+        <button
+          onClick={onClose}
+          className="absolute right-6 top-6 flex items-center gap-1.5 font-mono text-xs text-muted transition-colors hover:text-accent"
+        >
+          ✕ {t(content.memories.close)}
+        </button>
+        <PanelEyebrow>
+          {t(p.category)} · {p.year}
+        </PanelEyebrow>
+        <h2 className="font-display text-4xl font-bold tracking-tight text-ink">{t(p.title)}</h2>
+        <p className="mt-4 leading-relaxed text-muted">{t(p.desc)}</p>
+        {"clients" in p && p.clients ? <p className="mt-3 font-mono text-xs text-ink/60">{p.clients}</p> : null}
+        <div className="mt-6 flex flex-wrap gap-2">
+          {p.tags.map((tag) => (
+            <span key={tag} className="rounded-md border border-line bg-bg/40 px-2.5 py-1 font-mono text-[11px] text-ink/70">{tag}</span>
+          ))}
+        </div>
+      </motion.div>
     </div>
   );
 }
@@ -1609,6 +1773,244 @@ function PanelEyebrow({ children }: { children: React.ReactNode }) {
     <div className="mb-5 flex items-center gap-3">
       <span className="h-px w-8 bg-gradient-to-r from-ink/70 to-transparent" />
       <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-muted">{children}</span>
+    </div>
+  );
+}
+
+// --- FINALE: the sign-off typed onto the wireframe wall ---------------------
+type FinaleLine = {
+  kind: "sig" | "sub" | "link" | "end";
+  text: string;
+  href?: string;
+  label?: string;
+};
+
+// The closing words, typed terminal-style onto a wireframe panel. Once the
+// last line lands, the socials fade in beneath and the caret keeps blinking.
+function FinaleWall({ active }: { active: boolean }) {
+  const { t } = useLang();
+  const [typedDone, setTypedDone] = useState(false);
+  const onDone = useCallback(() => {
+    setTypedDone(true);
+    sfx.play("confirm"); // chime as the sign-off lands + the wall ripples
+  }, []);
+
+  // reset when the finale leaves the screen so it re-types on the next visit
+  useEffect(() => {
+    if (!active) setTypedDone(false);
+  }, [active]);
+
+  const lines: FinaleLine[] = [
+    { kind: "sig", text: "zolboo.xyz" },
+    { kind: "sub", text: t(content.finale.sub) },
+    { kind: "link", label: "EMAIL", text: content.contact.email, href: `mailto:${content.contact.email}` },
+    { kind: "link", label: "PHONE", text: content.contact.phone, href: `tel:${content.contact.phoneRaw}` },
+    { kind: "end", text: t(content.finale.continued) },
+  ];
+
+  return (
+    <div className="relative w-full max-w-xl">
+      {/* THE WALL — a section of cyan cube cells matching the room's lattice,
+          extended past the text and edge-faded so it fuses with the 3D wireframe
+          behind it. This is the surface the sign-off is written onto. */}
+      <div
+        className="pointer-events-none absolute -inset-x-10 -inset-y-12 sm:-inset-x-20 sm:-inset-y-16"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(45,230,230,0.30) 1px, transparent 1px), linear-gradient(90deg, rgba(45,230,230,0.30) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          backgroundPosition: "center",
+          maskImage: "radial-gradient(115% 110% at 50% 50%, #000 28%, transparent 78%)",
+          WebkitMaskImage: "radial-gradient(115% 110% at 50% 50%, #000 28%, transparent 78%)",
+        }}
+      />
+      {/* additive cyan wash so the wall glows like the lattice */}
+      <div
+        className="pointer-events-none absolute -inset-x-10 -inset-y-12 mix-blend-screen sm:-inset-x-20 sm:-inset-y-16"
+        style={{ background: "radial-gradient(55% 50% at 50% 50%, rgba(45,230,230,0.12), transparent 72%)" }}
+      />
+      {/* frosted scrim directly behind the words — see-through (the wireframe
+          wall still reads) but lightly blurred so the type stays legible, as if
+          the words are etched into a pane set into the wall */}
+      <div
+        className="pointer-events-none absolute -inset-x-5 -inset-y-7 rounded-2xl backdrop-blur-[3px]"
+        style={{
+          background: "radial-gradient(72% 72% at 50% 50%, rgba(2,6,10,0.6), transparent 76%)",
+          maskImage: "radial-gradient(78% 78% at 50% 50%, #000 44%, transparent 80%)",
+          WebkitMaskImage: "radial-gradient(78% 78% at 50% 50%, #000 44%, transparent 80%)",
+        }}
+      />
+      {/* brighter wireframe corner brackets — lock the wall panel into the lattice */}
+      <span className="pointer-events-none absolute -left-3 -top-3 h-7 w-7 border-l-2 border-t-2 border-accent/60" />
+      <span className="pointer-events-none absolute -right-3 -top-3 h-7 w-7 border-r-2 border-t-2 border-accent/60" />
+      <span className="pointer-events-none absolute -bottom-3 -left-3 h-7 w-7 border-b-2 border-l-2 border-accent/60" />
+      <span className="pointer-events-none absolute -bottom-3 -right-3 h-7 w-7 border-b-2 border-r-2 border-accent/60" />
+
+      {/* a cyan ripple radiates across the wall the moment the sign-off lands */}
+      {typedDone && (
+        <div
+          key="pulse"
+          className="wall-pulse pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ border: "1px solid rgba(45,230,230,0.5)", boxShadow: "0 0 40px rgba(45,230,230,0.4)" }}
+        />
+      )}
+
+      <div className="relative px-7 py-9 text-left sm:px-10 sm:py-11">
+        <FinaleTyper active={active} lines={lines} onDone={onDone} done={typedDone} />
+
+        {/* socials resolve only after the message has finished typing */}
+        <div
+          className={`mt-8 flex items-center gap-3 transition-all duration-700 ${
+            typedDone ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"
+          }`}
+        >
+          <a
+            href={content.contact.social.facebook}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Facebook"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent"
+          >
+            <Facebook size={15} strokeWidth={2} />
+          </a>
+          <a
+            href={content.contact.social.instagram}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Instagram"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent"
+          >
+            <Instagram size={15} strokeWidth={2} />
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FinaleTyper({
+  active,
+  lines,
+  speed = 34,
+  onDone,
+  done = false,
+}: {
+  active: boolean;
+  lines: FinaleLine[];
+  speed?: number;
+  onDone?: () => void;
+  done?: boolean;
+}) {
+  const total = lines.reduce((a, l) => a + l.text.length, 0);
+  const [typed, setTyped] = useState(0);
+
+  useEffect(() => {
+    if (!active) {
+      setTyped(0);
+      return;
+    }
+    let raf = 0;
+    let tickBucket = -1;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const v = Math.min(total, Math.round((now - t0) / speed));
+      setTyped(v);
+      // soft typewriter blip every few characters (not every one → not noisy)
+      const bucket = Math.floor(v / 3);
+      if (v < total && bucket !== tickBucket) {
+        tickBucket = bucket;
+        sfx.play("tick");
+      }
+      if (v < total) raf = requestAnimationFrame(tick);
+      else onDone?.();
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, total, speed, onDone]);
+
+  let acc = 0;
+  return (
+    <div className="space-y-4">
+      {lines.map((line, i) => {
+        const start = acc;
+        acc += line.text.length;
+        const started = typed >= start;
+        if (!started && typed < start) return null;
+        const visible = Math.max(0, Math.min(line.text.length, typed - start));
+        const typing = visible < line.text.length;
+        // caret rides the line being typed, and rests on the final line when done
+        const caret = typing || (i === lines.length - 1 && typed >= total);
+        if (visible <= 0 && !(i === 0 && typed === 0 && active)) return null;
+        return <FinaleLineView key={i} line={line} visible={visible} caret={caret} bloom={done && line.kind === "sig"} />;
+      })}
+    </div>
+  );
+}
+
+function FinaleLineView({
+  line,
+  visible,
+  caret,
+  bloom = false,
+}: {
+  line: FinaleLine;
+  visible: number;
+  caret: boolean;
+  bloom?: boolean;
+}) {
+  const shown = line.text.slice(0, visible);
+  const Caret = caret ? <span className="caret ml-0.5 text-accent">▋</span> : null;
+
+  if (line.kind === "sig") {
+    const a = shown.slice(0, 6); // "zolboo"
+    const b = shown.slice(6); // ".xyz"
+    return (
+      <div
+        className={`font-logo text-4xl font-extrabold italic tracking-tight text-ink sm:text-6xl ${bloom ? "finale-bloom" : ""}`}
+        style={{ textShadow: "0 0 40px rgba(45,230,230,0.4)" }}
+      >
+        {a}
+        <span className="text-accent">{b}</span>
+        {Caret}
+      </div>
+    );
+  }
+
+  if (line.kind === "sub") {
+    return (
+      <p className="max-w-md font-mono text-sm leading-relaxed text-muted">
+        {shown}
+        {Caret}
+      </p>
+    );
+  }
+
+  if (line.kind === "link") {
+    const complete = visible >= line.text.length;
+    const inner = (
+      <>
+        <span className="text-accent/55">{line.label}&nbsp;&nbsp;</span>
+        <span className="text-ink">{shown}</span>
+        {Caret}
+      </>
+    );
+    return complete && line.href ? (
+      <a href={line.href} className="block w-fit font-mono text-sm transition-colors hover:text-accent">
+        {inner}
+      </a>
+    ) : (
+      <div className="font-mono text-sm">{inner}</div>
+    );
+  }
+
+  // end — "To be continued…"
+  return (
+    <div
+      className="pt-1 font-mono text-xs font-medium uppercase tracking-[0.35em] text-ink/90"
+      style={{ textShadow: "0 0 22px rgba(45,230,230,0.35)" }}
+    >
+      {shown}
+      {Caret}
     </div>
   );
 }
@@ -1623,38 +2025,41 @@ function WorldFallback() {
       {/* top bar */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line/60 bg-bg/80 px-5 py-4 backdrop-blur-md">
         <Logo className="text-lg" />
-        <LangToggle />
+        <div className="flex items-center gap-2.5">
+          <SoundToggle />
+          <LangToggle />
+        </div>
       </header>
 
       <main className="mx-auto max-w-md px-5 pb-24">
         {/* hero */}
         <section className="pb-12 pt-14">
           <div className="font-mono text-[10px] uppercase tracking-[0.35em] text-accent/80">
-            ✦ {t(c.hero.role)}
+            ✦ <ScrambleText text={t(c.hero.role)} whenVisible speed={20} />
           </div>
           <h1 className="mt-4 font-display text-6xl font-extrabold uppercase leading-[0.95] tracking-tight">
-            {c.hero.name}
+            <ScrambleText text={c.hero.name} whenVisible speed={60} />
           </h1>
           <div className="mt-4 h-px w-28 bg-gradient-to-r from-accent to-transparent" />
           <p className="mt-6 text-[15px] leading-relaxed text-muted">{t(c.hero.tagline)}</p>
           <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted/70">
             <span className="flex items-center gap-1.5 text-ink/80">
               <span className="h-1.5 w-1.5 animate-pulseGlow rounded-full bg-accent" />
-              {t(c.hero.status)}
+              <ScrambleText text={t(c.hero.status)} whenVisible speed={20} />
             </span>
             <span className="text-muted/40">·</span>
-            <span>{t(c.contact.location)}</span>
+            <span><ScrambleText text={t(c.contact.location)} whenVisible speed={22} /></span>
           </div>
           <div className="mt-7 flex flex-wrap gap-3">
             <a
               href={`mailto:${c.contact.email}`}
-              className="rounded-full bg-accent px-5 py-2.5 font-mono text-xs font-semibold uppercase tracking-[0.15em] text-bg"
+              className="rounded-full bg-accent px-5 py-2.5 font-mono text-xs font-semibold uppercase tracking-[0.15em] text-bg transition-all hover:shadow-[0_0_24px_-6px_rgba(45,230,230,0.7)] active:scale-[0.97]"
             >
               {t(c.hero.ctaContact)}
             </a>
             <a
               href="#work"
-              className="rounded-full border border-line px-5 py-2.5 font-mono text-xs uppercase tracking-[0.15em] text-muted"
+              className="rounded-full border border-line px-5 py-2.5 font-mono text-xs uppercase tracking-[0.15em] text-muted transition-colors hover:border-accent/40 hover:text-ink active:scale-[0.97]"
             >
               {t(c.hero.ctaWork)}
             </a>
@@ -1663,12 +2068,12 @@ function WorldFallback() {
 
         {/* skills */}
         <section className="border-t border-line/60 py-10">
-          <PanelEyebrow>Skills</PanelEyebrow>
+          <PanelEyebrow><ScrambleText text="Skills" whenVisible speed={30} /></PanelEyebrow>
           <div className="-mt-1">
             {SKILLS.map((s) => (
               <div key={s.cat} className="grid grid-cols-[88px_1fr] gap-x-3 border-b border-line/50 py-2.5">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent/90">{s.cat}</span>
-                <span className="font-mono text-[11px] leading-relaxed text-ink/80">{s.items}</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent/90"><ScrambleText text={s.cat} whenVisible speed={24} /></span>
+                <span className="font-mono text-[11px] leading-relaxed text-ink/80"><ScrambleText text={s.items} whenVisible speed={12} /></span>
               </div>
             ))}
           </div>
@@ -1676,15 +2081,15 @@ function WorldFallback() {
 
         {/* selected work */}
         <section id="work" className="scroll-mt-20 border-t border-line/60 py-10">
-          <PanelEyebrow>{t(c.projects.label)}</PanelEyebrow>
-          <h2 className="font-display text-2xl font-bold tracking-tight">{t(c.projects.heading)}</h2>
+          <PanelEyebrow><ScrambleText text={t(c.projects.label)} whenVisible speed={24} /></PanelEyebrow>
+          <h2 className="font-display text-2xl font-bold tracking-tight"><ScrambleText text={t(c.projects.heading)} whenVisible speed={20} /></h2>
           <div className="mt-6 space-y-6">
             {c.projects.items.map((p) => (
               <div key={p.id} className="border-t border-line pt-4">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-accent/80">
-                  {t(p.category)} · {p.year}
+                  <ScrambleText text={`${t(p.category)} · ${p.year}`} whenVisible speed={20} />
                 </div>
-                <h3 className="mt-1 font-display text-lg font-bold">{t(p.title)}</h3>
+                <h3 className="mt-1 font-display text-lg font-bold"><ScrambleText text={t(p.title)} whenVisible speed={26} /></h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted">{t(p.desc)}</p>
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                   {p.tags.map((tag) => (
@@ -1698,14 +2103,14 @@ function WorldFallback() {
 
         {/* journey */}
         <section className="border-t border-line/60 py-10">
-          <PanelEyebrow>{t(c.journey.label)}</PanelEyebrow>
-          <h2 className="font-display text-2xl font-bold tracking-tight">{t(c.journey.heading)}</h2>
+          <PanelEyebrow><ScrambleText text={t(c.journey.label)} whenVisible speed={24} /></PanelEyebrow>
+          <h2 className="font-display text-2xl font-bold tracking-tight"><ScrambleText text={t(c.journey.heading)} whenVisible speed={20} /></h2>
           <div className="mt-6 space-y-4 border-l border-white/12 pl-5">
             {c.journey.items.map((it) => (
               <div key={it.year} className="relative">
                 <span className="absolute -left-[23px] top-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
-                <div className="font-mono text-[10px] uppercase tracking-wider text-accent/80">{it.year}</div>
-                <div className="font-display text-base font-semibold">{t(it.title)}</div>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-accent/80"><ScrambleText text={it.year} whenVisible speed={26} /></div>
+                <div className="font-display text-base font-semibold"><ScrambleText text={t(it.title)} whenVisible speed={24} /></div>
                 <div className="text-sm text-muted">{t(it.desc)}</div>
               </div>
             ))}
@@ -1714,12 +2119,12 @@ function WorldFallback() {
 
         {/* services */}
         <section className="border-t border-line/60 py-10">
-          <PanelEyebrow>{t(c.services.label)}</PanelEyebrow>
-          <h2 className="font-display text-2xl font-bold tracking-tight">{t(c.services.heading)}</h2>
+          <PanelEyebrow><ScrambleText text={t(c.services.label)} whenVisible speed={24} /></PanelEyebrow>
+          <h2 className="font-display text-2xl font-bold tracking-tight"><ScrambleText text={t(c.services.heading)} whenVisible speed={20} /></h2>
           <div className="mt-6 grid gap-3">
             {c.services.items.map((s) => (
               <div key={s.id} className="rounded-xl border border-line bg-white/[0.02] p-4">
-                <div className="font-display text-base font-semibold">{t(s.title)}</div>
+                <div className="font-display text-base font-semibold"><ScrambleText text={t(s.title)} whenVisible speed={24} /></div>
                 <div className="mt-1 text-sm leading-relaxed text-muted">{t(s.desc)}</div>
                 <div className="mt-2 font-mono text-[10px] uppercase tracking-wider text-accent/70">{s.tools}</div>
               </div>
@@ -1729,24 +2134,24 @@ function WorldFallback() {
 
         {/* contact */}
         <section className="border-t border-line/60 py-10">
-          <PanelEyebrow>{t(c.contact.label)}</PanelEyebrow>
-          <h2 className="font-display text-3xl font-extrabold leading-tight tracking-tight text-grad">{t(c.contact.heading)}</h2>
+          <PanelEyebrow><ScrambleText text={t(c.contact.label)} whenVisible speed={24} /></PanelEyebrow>
+          <h2 className="font-display text-3xl font-extrabold leading-tight tracking-tight text-grad"><ScrambleText text={t(c.contact.heading)} whenVisible speed={26} /></h2>
           <p className="mt-3 text-sm leading-relaxed text-muted">{t(c.contact.sub)}</p>
           <div className="mt-6 space-y-3 font-mono text-sm">
-            <a href={`mailto:${c.contact.email}`} className="flex items-center gap-2.5 text-ink">
+            <a href={`mailto:${c.contact.email}`} className="flex w-fit items-center gap-2.5 text-ink transition-colors hover:text-accent">
               <Mail size={15} className="text-accent" />
               {c.contact.email}
             </a>
-            <a href={`tel:${c.contact.phoneRaw}`} className="flex items-center gap-2.5 text-ink">
+            <a href={`tel:${c.contact.phoneRaw}`} className="flex w-fit items-center gap-2.5 text-ink transition-colors hover:text-accent">
               <Phone size={15} className="text-accent" />
               {c.contact.phone}
             </a>
           </div>
           <div className="mt-6 flex gap-3">
-            <a href={c.contact.social.facebook} target="_blank" rel="noreferrer" aria-label="Facebook" className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-muted">
+            <a href={c.contact.social.facebook} target="_blank" rel="noreferrer" aria-label="Facebook" className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-muted transition-all hover:border-accent/40 hover:text-accent active:scale-95">
               <Facebook size={17} />
             </a>
-            <a href={c.contact.social.instagram} target="_blank" rel="noreferrer" aria-label="Instagram" className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-muted">
+            <a href={c.contact.social.instagram} target="_blank" rel="noreferrer" aria-label="Instagram" className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-muted transition-all hover:border-accent/40 hover:text-accent active:scale-95">
               <Instagram size={17} />
             </a>
           </div>

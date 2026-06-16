@@ -95,6 +95,9 @@ export default function Loader() {
           />
           <div className="grain absolute inset-0 opacity-50" />
 
+          {/* boot log — a sci-fi init readout in the corner */}
+          <BootLog />
+
           {/* the wordmark + the ball that writes it */}
           <div className="relative">
             {/* baseline the ball rolls along — a feathered hairline */}
@@ -220,5 +223,33 @@ export default function Loader() {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// Sci-fi initialisation readout in the loader corner — reveals one line at a
+// time, ending on "SYSTEM ONLINE".
+const BOOT_LINES = [
+  "> INITIALIZING RENDER PIPELINE",
+  "> COMPILING SHADERS · OK",
+  "> LOADING WIREFRAME LATTICE · OK",
+  "> MOUNTING MEMORY ROOM · OK",
+  "> SYSTEM ONLINE",
+];
+
+function BootLog() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setN((v) => (v < BOOT_LINES.length ? v + 1 : v)), 360);
+    return () => window.clearInterval(id);
+  }, []);
+  return (
+    <div className="absolute bottom-7 left-7 hidden font-mono text-[9px] uppercase leading-relaxed tracking-[0.18em] text-accent/40 sm:block">
+      {BOOT_LINES.slice(0, n).map((line, i) => (
+        <div key={line} className={i === BOOT_LINES.length - 1 ? "text-accent/80" : ""}>
+          {line}
+          {i === n - 1 && <span className="caret ml-1 text-accent">▋</span>}
+        </div>
+      ))}
+    </div>
   );
 }

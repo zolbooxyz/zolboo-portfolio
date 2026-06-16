@@ -41,6 +41,17 @@ body {
   color: #ffffff;
 }
 
+/* Keyboard focus — a visible accent ring for keyboard users only (never on
+   pointer/touch), so the cinematic UI stays clean for mouse visitors */
+:focus-visible {
+  outline: 2px solid rgba(45, 230, 230, 0.8);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
@@ -66,6 +77,27 @@ body {
   pointer-events: none;
   opacity: 0.04;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* FUI scanlines — faint horizontal lines that drift slowly down the stage */
+.hud-scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(45, 230, 230, 0.045) 0px,
+    rgba(45, 230, 230, 0.045) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  background-size: 100% 3px;
+  animation: hudScan 8s linear infinite;
+  mix-blend-mode: screen;
+}
+@keyframes hudScan {
+  from { background-position: 0 0; }
+  to { background-position: 0 60px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-scanlines { animation: none; }
 }
 
 /* Dotted grid background */
@@ -96,8 +128,14 @@ html.custom-cursor * {
   animation: marquee 32s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .animate-marquee {
-    animation: none;
+  .animate-marquee,
+  .caret,
+  .animate-bounce,
+  .animate-pulseGlow {
+    animation: none !important;
+  }
+  html {
+    scroll-behavior: auto;
   }
 }
 
@@ -108,6 +146,47 @@ html.custom-cursor * {
 }
 .caret {
   animation: caretBlink 1.05s steps(1, end) infinite;
+}
+
+/* One-time signature bloom when the finale finishes typing onto the wall */
+@keyframes finaleBloom {
+  0% { text-shadow: 0 0 40px rgba(45, 230, 230, 0.4); }
+  45% { text-shadow: 0 0 70px rgba(45, 230, 230, 0.95), 0 0 130px rgba(45, 230, 230, 0.45); }
+  100% { text-shadow: 0 0 40px rgba(45, 230, 230, 0.4); }
+}
+.finale-bloom { animation: finaleBloom 1.5s ease-out; }
+
+/* Wall cell ripple — a cyan pulse that radiates out once the sign-off lands */
+@keyframes wallPulse {
+  0% { opacity: 0; transform: scale(0.6); }
+  35% { opacity: 0.6; }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+.wall-pulse { animation: wallPulse 1.6s ease-out forwards; }
+
+/* Error shake for the memory form */
+@keyframes shakeX {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(7px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(3px); }
+}
+.animate-shake { animation: shakeX 0.5s ease-in-out; }
+
+/* Success checkmark draw */
+@keyframes drawCheck { to { stroke-dashoffset: 0; } }
+.draw-check {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: drawCheck 0.5s ease-out 0.05s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finale-bloom,
+  .wall-pulse,
+  .animate-shake { animation: none !important; }
+  .draw-check { stroke-dashoffset: 0; animation: none !important; }
 }
 
 /* Neon text accent */
