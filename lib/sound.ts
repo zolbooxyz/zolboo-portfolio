@@ -201,83 +201,102 @@ class SoundFX {
     }
   }
 
-  // --- ambient air: a soft filtered-noise wind whose colour + level evolve
-  // with scroll. No pitch, no chords — just atmosphere, kept very quiet --------
-  private ambient: { master: GainNode; gain: GainNode; bp: BiquadFilterNode; lp: BiquadFilterNode } | null = null;
+  // --- ambient: a futuristic bed — a low sub, a resonant drone slowly swept by
+  // an LFO (the sci-fi "sweep"), and a faint digital shimmer. Evolves with
+  // scroll, kept very quiet ----------------------------------------------------
+  private ambient:
+    | { master: GainNode; sub: GainNode; drone: GainNode; shim: GainNode; lp: BiquadFilterNode }
+    | null = null;
 
-  /** start the looping airy bed (idempotent; needs a running context) */
+  /** start the looping futuristic bed (idempotent; needs a running context) */
   ensureAmbient() {
     if (this.ambient || this.reduced) return;
     this.init();
     if (!this.ctx || !this.master || this.ctx.state !== "running") return;
     const ctx = this.ctx;
 
-    // a few seconds of brown noise (smoother, windier than white) on a loop
-    const secs = 4;
-    const len = ctx.sampleRate * secs;
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < len; i++) {
-      const white = Math.random() * 2 - 1;
-      last = (last + 0.02 * white) / 1.02;
-      d[i] = last * 3.2;
-    }
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop = true;
-
-    const bp = ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.Q.value = 0.8;
-    bp.frequency.value = 300;
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 600;
-
-    const gain = ctx.createGain();
-    gain.gain.value = 0;
-
     const master = ctx.createGain();
     master.gain.value = this.muted ? 0 : 1;
-
-    src.connect(bp);
-    bp.connect(lp);
-    lp.connect(gain);
-    gain.connect(master);
     master.connect(this.master);
-    src.start();
 
-    // slow gusts: an LFO wanders the bandpass centre so the wind breathes
-    const lfo = ctx.createOscillator();
-    lfo.frequency.value = 0.07;
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 110;
-    lfo.connect(lfoGain);
-    lfoGain.connect(bp.frequency);
-    lfo.start();
+    // deep sub — quiet body
+    const sub = ctx.createGain();
+    sub.gain.value = 0;
+    const subOsc = ctx.createOscillator();
+    subOsc.type = "sine";
+    subOsc.frequency.value = 52;
+    subOsc.connect(sub);
+    sub.connect(master);
+    subOsc.start();
 
-    this.ambient = { master, gain, bp, lp };
+    // resonant drone: detuned saws through a high-Q lowpass that an LFO sweeps —
+    // this slow vowel-like motion is the signature "futuristic" texture
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.Q.value = 9;
+    lp.frequency.value = 320;
+    [55, 55.2, 110].forEach((f) => {
+      const o = ctx.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = f;
+      o.connect(lp);
+      o.start();
+    });
+    const drone = ctx.createGain();
+    drone.gain.value = 0;
+    lp.connect(drone);
+    drone.connect(master);
+    const sweep = ctx.createOscillator();
+    sweep.type = "sine";
+    sweep.frequency.value = 0.05;
+    const sweepAmt = ctx.createGain();
+    sweepAmt.gain.value = 520; // ± sweep depth on the cutoff
+    sweep.connect(sweepAmt);
+    sweepAmt.connect(lp.frequency);
+    sweep.start();
+
+    // faint digital shimmer up top, slowly tremolo'd
+    const shim = ctx.createGain();
+    shim.gain.value = 0;
+    [1318.5, 1760, 2637].forEach((f) => {
+      const o = ctx.createOscillator();
+      o.type = "triangle";
+      o.frequency.value = f;
+      o.connect(shim);
+      o.start();
+    });
+    shim.connect(master);
+    const trem = ctx.createOscillator();
+    trem.type = "sine";
+    trem.frequency.value = 0.13;
+    const tremAmt = ctx.createGain();
+    tremAmt.gain.value = 0.004; // small — sums onto the shimmer base level set per section
+    trem.connect(tremAmt);
+    tremAmt.connect(shim.gain); // modulates the shimmer level
+    trem.start();
+
+    this.ambient = { master, sub, drone, shim, lp };
   }
 
-  /** shift the wind's colour + level with scroll progress p (0..1) */
+  /** shift the futuristic bed's level + colour with scroll progress p (0..1) */
   setAmbientProgress(p: number) {
     if (!this.ambient || !this.ctx) return;
     const ss = (a: number, b: number) => {
       const t = Math.max(0, Math.min(1, (p - a) / (b - a)));
       return t * t * (3 - 2 * t);
     };
-    const w0 = 1 - ss(0.42, 0.6); // void — dark, low
-    const w1 = ss(0.46, 0.62) * (1 - ss(0.86, 0.96)); // room — open, airy
+    const w0 = 1 - ss(0.42, 0.6); // void — dark, sparse
+    const w1 = ss(0.46, 0.62) * (1 - ss(0.86, 0.96)); // room — open, resonant
     const w2 = ss(0.86, 0.96); // finale — settled
     const norm = w0 + w1 + w2 || 1;
-    const bpF = (w0 * 220 + w1 * 760 + w2 * 480) / norm;
-    const lpF = (w0 * 480 + w1 * 1500 + w2 * 1000) / norm;
-    const lvl = (0.028 * (w0 * 0.7 + w1 * 1.0 + w2 * 0.85)) / norm; // very quiet
+    const lvl = 0.03; // very quiet master level for the bed
     const t = this.ctx.currentTime;
-    this.ambient.bp.frequency.setTargetAtTime(bpF, t, 0.7);
-    this.ambient.lp.frequency.setTargetAtTime(lpF, t, 0.7);
-    this.ambient.gain.gain.setTargetAtTime(lvl, t, 0.7);
+    this.ambient.sub.gain.setTargetAtTime(lvl * 0.55, t, 0.8);
+    this.ambient.drone.gain.setTargetAtTime((lvl * (w0 * 0.6 + w1 * 1.0 + w2 * 0.8)) / norm, t, 0.7);
+    this.ambient.shim.gain.setTargetAtTime((lvl * 0.35 * (w1 * 1.0 + w2 * 0.7)) / norm, t, 0.7);
+    // base cutoff per section (the LFO sweeps around this)
+    const cutoff = (w0 * 260 + w1 * 620 + w2 * 460) / norm;
+    this.ambient.lp.frequency.setTargetAtTime(cutoff, t, 0.7);
   }
 
   // --- spatial memory cubes: a small pool of HRTF-panned voices that attach to

@@ -934,7 +934,9 @@ export default function World() {
 
     const skillTicked = new Array(SKILLS.length).fill(false); // soft blip as each skill row locks in
     let ambFrame = 0; // throttles the ambient-pad crossfade updates
-    let lastStep = -1; // footstep bucket along the scrubbed walk
+    let stepPrevY: number | null = null; // hip-bob tracking for exact footsteps
+    let stepPrevVy = 0;
+    let lastStepMs = 0;
     const sndFwd = new THREE.Vector3(); // listener forward (scratch)
     const sndUp = new THREE.Vector3(); // listener up (scratch)
 
@@ -1000,6 +1002,19 @@ export default function World() {
         if (hipsBone && hip0) {
           hipsBone.position.x = hip0.x;
           hipsBone.position.z = hip0.z;
+          // footstep: fire exactly on each LOW point of the hip bob (foot plant).
+          // detect the moment the vertical velocity flips down→up while walking.
+          const y = hipsBone.position.y;
+          if (stepPrevY !== null) {
+            const vy = y - stepPrevY;
+            const walking = p > 0.02 && p < 0.6 && Math.abs(vy) > 0.00005;
+            if (walking && stepPrevVy < 0 && vy >= 0 && performance.now() - lastStepMs > 160) {
+              lastStepMs = performance.now();
+              sfx.play("step");
+            }
+            stepPrevVy = vy;
+          }
+          stepPrevY = y;
         }
         // raise the right arm + point forward as the walk finishes — blended
         // over the clip pose for the arm chain only (slerp by pointF). Read
@@ -1246,17 +1261,7 @@ export default function World() {
         sfx.setAmbientProgress(p);
       }
 
-      // footsteps: a soft footfall each step-bucket as the scrubbed walk advances
-      const walkP = (p - 0.16) / (0.6 - 0.16);
-      if (walkP > 0 && walkP < 1) {
-        const step = Math.floor(walkP * 11);
-        if (step !== lastStep) {
-          lastStep = step;
-          sfx.play("step");
-        }
-      } else {
-        lastStep = -1;
-      }
+      // (footsteps are fired from the hip-bob low points in the walk block above)
 
       // spatial memory cubes: point the listener at the camera and pan the
       // nearest glowing cubes around it in 3D (only in the room; throttled)
