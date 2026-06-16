@@ -43,8 +43,14 @@ class SoundFX {
         const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         this.ctx = new AC();
         this.master = this.ctx.createGain();
-        this.master.gain.value = 0.45;
-        this.master.connect(this.ctx.destination);
+        this.master.gain.value = 0.28; // softer overall
+        // gentle lowpass on the bus rounds off harsh highs for a softer character
+        const softLp = this.ctx.createBiquadFilter();
+        softLp.type = "lowpass";
+        softLp.frequency.value = 4200;
+        softLp.Q.value = 0.4;
+        this.master.connect(softLp);
+        softLp.connect(this.ctx.destination);
       } catch {
         this.ctx = null;
       }
@@ -154,49 +160,48 @@ class SoundFX {
     if (!this.ctx || !this.master) return;
     switch (name) {
       case "hover":
-        this.tone(1480, 0.045, "sine", 0.05);
+        this.tone(1320, 0.05, "sine", 0.03);
         break;
       case "click":
-        this.tone(720, 0.05, "square", 0.09, 940, 0, 2600);
-        this.tone(1180, 0.04, "square", 0.04, undefined, 0.02, 3000);
+        this.tone(660, 0.06, "triangle", 0.05, 860);
+        this.tone(1040, 0.05, "sine", 0.025, undefined, 0.02);
         break;
       case "open":
-        this.noise(0.34, 280, 2600, 0.1);
-        this.tone(420, 0.3, "sine", 0.06, 920);
+        this.noise(0.36, 240, 1800, 0.05);
+        this.tone(420, 0.32, "sine", 0.045, 880);
         break;
       case "close":
-        this.noise(0.26, 2400, 320, 0.08);
-        this.tone(820, 0.22, "sine", 0.05, 360);
+        this.noise(0.28, 1700, 300, 0.045);
+        this.tone(760, 0.24, "sine", 0.04, 340);
         break;
       case "confirm":
-        this.tone(660, 0.1, "sine", 0.12, undefined, 0);
-        this.tone(880, 0.1, "sine", 0.12, undefined, 0.08);
-        this.tone(1320, 0.18, "sine", 0.12, undefined, 0.16);
+        this.tone(660, 0.12, "sine", 0.07, undefined, 0);
+        this.tone(880, 0.12, "sine", 0.07, undefined, 0.09);
+        this.tone(1320, 0.2, "sine", 0.07, undefined, 0.18);
         break;
       case "error":
-        this.tone(180, 0.22, "sawtooth", 0.14, 120, 0, 900);
-        this.tone(120, 0.24, "sawtooth", 0.1, 90, 0.04, 700);
+        this.tone(170, 0.24, "triangle", 0.08, 120, 0, 700);
+        this.tone(115, 0.26, "triangle", 0.06, 90, 0.04, 600);
         break;
       case "lock":
-        this.tone(1300, 0.03, "square", 0.08);
-        this.tone(1750, 0.05, "square", 0.08, undefined, 0.06);
-        this.noise(0.12, 1800, 600, 0.06, 0.02);
+        this.tone(1180, 0.04, "triangle", 0.045);
+        this.tone(1560, 0.06, "sine", 0.045, undefined, 0.06);
         break;
       case "tick":
-        this.tone(2100, 0.014, "square", 0.025);
+        this.tone(1800, 0.016, "sine", 0.018);
         break;
       case "toggle":
-        this.tone(900, 0.06, "triangle", 0.1, 1300);
+        this.tone(820, 0.07, "sine", 0.06, 1180);
         break;
       case "boot":
-        this.tone(180, 0.5, "sine", 0.1, 1200);
-        this.tone(1320, 0.12, "sine", 0.1, undefined, 0.5);
-        this.noise(0.5, 200, 3000, 0.05);
+        this.tone(170, 0.55, "sine", 0.06, 1000);
+        this.tone(1180, 0.14, "sine", 0.06, undefined, 0.5);
+        this.noise(0.5, 200, 2000, 0.03);
         break;
       case "step":
         // a soft low footfall + a faint scuff, synced to the scrubbed walk
-        this.tone(72, 0.12, "sine", 0.11, 48);
-        this.noise(0.05, 240, 90, 0.04);
+        this.tone(70, 0.13, "sine", 0.07, 46);
+        this.noise(0.05, 200, 80, 0.025);
         break;
     }
   }
