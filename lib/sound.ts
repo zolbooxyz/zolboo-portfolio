@@ -19,6 +19,7 @@ class SoundFX {
   private master: GainNode | null = null;
   muted = false;
   private reduced = false;
+  private wired = false;
 
   /** read the persisted preference (call once on the client) */
   loadPref() {
@@ -47,7 +48,22 @@ class SoundFX {
         this.ctx = null;
       }
     }
-    if (this.ctx?.state === "suspended") this.ctx.resume().catch(() => {});
+    this.resume();
+    // browsers suspend the context on tab blur / idle — keep resuming it so a
+    // later interaction isn't silent. Registered once.
+    if (!this.wired && typeof window !== "undefined") {
+      this.wired = true;
+      const wake = () => this.resume();
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") wake();
+      });
+      window.addEventListener("pointerdown", wake, true);
+      window.addEventListener("keydown", wake, true);
+    }
+  }
+
+  private resume() {
+    if (this.ctx && this.ctx.state !== "running") this.ctx.resume().catch(() => {});
   }
 
   setMuted(m: boolean) {
@@ -72,7 +88,9 @@ class SoundFX {
     const ctx = this.ctx;
     const master = this.master;
     if (!ctx || !master) return;
-    const now = ctx.currentTime + delay;
+    // small lookahead so a sound scheduled right after a resume() (which is
+    // async) is never placed in the past and silently dropped
+    const now = ctx.currentTime + 0.02 + delay;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = type;
@@ -99,7 +117,7 @@ class SoundFX {
     const ctx = this.ctx;
     const master = this.master;
     if (!ctx || !master) return;
-    const now = ctx.currentTime + delay;
+    const now = ctx.currentTime + 0.02 + delay;
     const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = buf.getChannelData(0);

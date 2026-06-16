@@ -1378,7 +1378,7 @@ export default function World() {
           >
             <div className="mb-3 flex items-center justify-end gap-2 font-mono text-[9px] uppercase tracking-[0.4em] text-accent/70">
               <span className="h-1 w-1 animate-pulseGlow rounded-full bg-accent" />
-              <ScrambleText text="Skill Matrix" active={heroReady} speed={30} />
+              <ScrambleText text="SKILLS" active={heroReady} speed={30} />
             </div>
             <div ref={hudSkillRowsRef}>
               {SKILLS.map((s) => (

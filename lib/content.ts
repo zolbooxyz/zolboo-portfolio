@@ -11,39 +11,39 @@ export const content = {
   },
 
   hero: {
-    status: { mn: "Шинэ төсөл хүлээж авч байна", en: "Available for new projects" },
-    greeting: { mn: "Сайн уу, би", en: "Hello, I'm" },
-    welcome: { mn: "Миний профайлд тавтай морил", en: "Welcome to my profile" },
-    scrollHint: { mn: "Танилцуулгыг доош гүйлгэж үзээрэй", en: "Scroll down to see my intro" },
+    status: { mn: "Төслийн захиалга болон хамтран ажиллахад үргэлж нээлттэй", en: "Always open to projects & collaboration" },
+    greeting: { mn: "Сайн байна уу, би", en: "Hello, I'm" },
+    welcome: { mn: "Профайлд тавтай морил", en: "Welcome to my profile" },
+    scrollHint: { mn: "Танилцуулгыг доош гүйлгэн үзнэ үү", en: "Scroll down to see my intro" },
     name: "Zolboo",
     role: { mn: "Full-Stack хөгжүүлэгч · Автоматжуулалт", en: "Full-Stack Developer · Automation" },
     tagline: {
-      mn: "Би вэбсайт, чатбот, автоматжуулалт бүтээдэг. Монголын бизнесүүдэд бодит үр дүн авчрах гэж хичээдэг.",
-      en: "I build websites, chatbots, and automations — and I care about getting real results for Mongolian businesses.",
+      mn: "Вэбсайт, чатбот, автоматжуулалтын систем бүтээдэг. Монголын бизнест хэмжигдэхүйц, бодит үр дүн авчрахыг эрхэмлэдэг.",
+      en: "I build websites, chatbots, and automation systems — focused on delivering measurable, real-world results for Mongolian businesses.",
     },
-    ctaWork: { mn: "Төслүүдийг үзэх", en: "View my work" },
-    ctaContact: { mn: "Холбогдох", en: "Get in touch" },
-    hint: { mn: "↔ neon-г чирээд эргүүлээрэй", en: "↔ drag the neon to spin it" },
+    ctaWork: { mn: "Ажлуудыг үзэх", en: "View my work" },
+    ctaContact: { mn: "Холбоо барих", en: "Get in touch" },
+    hint: { mn: "↔ неоныг чирээд эргүүлээрэй", en: "↔ drag the neon to spin it" },
     location: { mn: "Улаанбаатар, Монгол", en: "Ulaanbaatar, Mongolia" },
     skillsNote: {
-      mn: "AI — видео үүсгэхээс бусад бүх чиглэлд ажилладаг",
+      mn: "AI — видео үүсгэхээс бусад бүх чиглэлд",
       en: "AI — every domain except video generation",
     },
-    startCta: { mn: "Доош гүйлгэж эхлүүл", en: "Scroll to start" },
+    startCta: { mn: "Доош гүйлгэн эхлүүлээрэй", en: "Scroll to begin" },
   },
 
   memories: {
     title: { mn: "Дурсамжийн өрөө", en: "Room of Memories" },
     line: {
-      mn: "Энд зочилсон хүн бүрийн үлдээсэн ул мөр — мөнхөд гэрэлтэн үлдэнэ.",
+      mn: "Энд зочилсон хүн бүрийн үлдээсэн ул мөр мөнхөд гэрэлтэн үлдэнэ.",
       en: "Every visitor leaves a trace here — left to glow for good.",
     },
     cta: { mn: "Дурсамж үлдээх", en: "Leave a memory" },
     formTitle: { mn: "Дурсамж үлдээх", en: "Leave a memory" },
     formEyebrow: { mn: "Дурсамжийн өрөө", en: "Room of Memories" },
     formIntro: {
-      mn: "Энэ сайтаар зочилсон хүн бүр энд ул мөрөө үлдээдэг. Нэр, хэдэн үг бичээрэй — таны дурсамж энэ орон зайд үргэлж хадгалагдаж, гэрэлтэх болно.",
-      en: "Everyone who visits leaves a trace here. Drop your name and a few words — your memory stays in this space, glowing, for good.",
+      mn: "Энэхүү вебээр зочлон надтай танилцсанд баярлалаа. Хамтарч ажиллах санал болон үлдээх сэтгэгдэл байвал дурсамжийн хайрцагт зурвас үлдээгээд хадгалаарай. Баярлалаа.",
+      en: "Thank you for visiting and getting to know me. If you'd like to work together or share a thought, drop a message in the memory box and save it. Thank you.",
     },
     nickname: { mn: "Нэр", en: "Name" },
     nicknamePh: { mn: "таны нэр", en: "your name" },
@@ -52,9 +52,9 @@ export const content = {
     phoneNote: { mn: "Заавал биш · нийтэд харагдахгүй", en: "Optional · never shown" },
     comment: { mn: "Сэтгэгдэл", en: "Message" },
     commentPh: { mn: "үлдээх үгээ бичнэ үү…", en: "write your message…" },
-    submit: { mn: "Үлдээх", en: "Leave it" },
+    submit: { mn: "Илгээх", en: "Send" },
     submitting: { mn: "Хадгалж байна…", en: "Saving…" },
-    success: { mn: "Таны дурсамж хадгалагдлаа ✦", en: "Your memory is saved ✦" },
+    success: { mn: "Таны зурвас амжилттай хадгалагдлаа ✦", en: "Your message has been saved ✦" },
     error: { mn: "Алдаа гарлаа. Дахин оролдоно уу.", en: "Something went wrong. Try again." },
     close: { mn: "Хаах", en: "Close" },
   },
@@ -62,16 +62,16 @@ export const content = {
   about: {
     label: { mn: "Танилцуулга", en: "About" },
     body: {
-      mn: "Би 2019 оноос сошиал маркетингаар эхэлж, цаг хугацааны явцад вэб хөгжүүлэлт, автоматжуулалт руу шилжсэн. Одоо Монголын бизнесүүдэд зориулсан вэбсайт, чатбот, автоматжуулалтын систем бүтээдэг. Зэрэгцээд KnowHub нэртэй AI автоматжуулалтын чиглэлээ хөгжүүлж байна.",
-      en: "I started in social media marketing back in 2019 and gradually moved into web development and automation. Today I build websites, chatbots, and automation systems for Mongolian businesses. Alongside that, I'm building KnowHub, my own AI automation venture.",
+      mn: "2019 онд дижитал маркетингаар эхэлж, цаг хугацааны эрхээр вэб хөгжүүлэлт, автоматжуулалт руу гүнзгийрсэн. Өнөөдөр Монголын бизнест зориулсан вэбсайт, чатбот, автоматжуулалтын систем бүтээдэг. Үүний зэрэгцээ AI автоматжуулалтын өөрийн бүтээгдэхүүн болох KnowHub-ийг хөгжүүлж байна.",
+      en: "I started in digital marketing in 2019 and gradually moved deeper into web development and automation. Today I build websites, chatbots, and automation systems for Mongolian businesses. Alongside that, I'm building KnowHub, my own AI automation product.",
     },
     eduLabel: { mn: "Боловсрол", en: "Education" },
     edu: {
-      mn: "Бакалавр, Мэдээлэл холбооны технологи — ШУТИС, 2024",
+      mn: "Бакалавр — Мэдээлэл холбооны технологи, ШУТИС (2024)",
       en: "B.Sc. in Information & Communication Technology — MUST, 2024",
     },
     nowLabel: { mn: "Одоо", en: "Now" },
-    now: { mn: "KnowHub — AI автоматжуулалт & SaaS бүтээж байна", en: "Building KnowHub — AI automation & SaaS" },
+    now: { mn: "KnowHub — AI автоматжуулалт ба SaaS бүтээж байна", en: "Building KnowHub — AI automation & SaaS" },
   },
 
   statement: {
@@ -84,11 +84,11 @@ export const content = {
   },
 
   projects: {
-    label: { mn: "Сонгомол төслүүд", en: "Selected Work" },
-    heading: { mn: "Сүүлийн үед бүтээсэн зүйлс", en: "Things I've built lately" },
+    label: { mn: "Сонгомол ажлууд", en: "Selected Work" },
+    heading: { mn: "Сүүлд бүтээсэн төслүүд", en: "Recent work" },
     sub: {
-      mn: "Live demo нийтлэгдээгүй ч доорх төслүүд бодит захиалга, бодит бүтээгдэхүүн дээр суурилсан.",
-      en: "No public demos yet, but each of these is based on real client work and real products.",
+      mn: "Олон нийтэд нээлттэй demo одоогоор байхгүй ч доорх төсөл бүр бодит захиалга, бодит бүтээгдэхүүн дээр суурилсан.",
+      en: "No public demos yet — but each of these is built on real client work and real products.",
     },
     items: [
       {
@@ -97,7 +97,7 @@ export const content = {
         year: "2025–2026",
         category: { mn: "Веб", en: "Web" },
         desc: {
-          mn: "Монголчуудад зориулсан Японы VIP аялал зохион байгуулах үйлчилгээний лендинг.",
+          mn: "Монголчуудад зориулсан Японы VIP аяллын үйлчилгээний танилцуулга вэб.",
           en: "Landing experience for a VIP Japan travel service aimed at Mongolian travelers.",
         },
         tags: ["Web", "Landing", "Motion"],
@@ -108,7 +108,7 @@ export const content = {
         year: "2025–2026",
         category: { mn: "Веб", en: "Web" },
         desc: {
-          mn: "Хөрөнгө оруулалтын зөвлөх компанийн олон хэлт корпорэйт вэбсайт.",
+          mn: "Хөрөнгө оруулалтын зөвлөх компанийн олон хэлт корпорат вэбсайт.",
           en: "Multilingual corporate website for an investment advisory firm.",
         },
         tags: ["Next.js", "TypeScript", "Tailwind", "Framer Motion", "Supabase"],
@@ -119,7 +119,7 @@ export const content = {
         year: "2025",
         category: { mn: "Автоматжуулалт", en: "Automation" },
         desc: {
-          mn: "Төрийн худалдан авалтын тендерийг хянаж, шинэ зарлал гарахад мэдэгдэл өгдөг автомат систем.",
+          mn: "Төрийн худалдан авалтын тендерийг хянаж, шинэ зар гармагц мэдэгдэл илгээдэг автомат систем.",
           en: "Automated system that monitors government procurement tenders and sends alerts on new listings.",
         },
         tags: ["Automation", "Alerts"],
@@ -130,7 +130,7 @@ export const content = {
         year: "2025",
         category: { mn: "Автоматжуулалт", en: "Automation" },
         desc: {
-          mn: "Facebook/Instagram дээрх захиалгыг бүрэн автоматжуулсан чатбот систем — карусель цэс, захиалга бүртгэл, нэгдсэн өгөгдлийн сан.",
+          mn: "Facebook/Instagram-ийн захиалгыг бүрэн автоматжуулсан чатбот систем — карусель цэс, захиалгын бүртгэл, нэгдсэн өгөгдлийн сан.",
           en: "Fully automated order-taking chatbot for Facebook/Instagram — carousel menu, order capture, and a unified database.",
         },
         tags: ["ManyChat", "Make.com", "Airtable"],
@@ -141,7 +141,7 @@ export const content = {
         year: "2022",
         category: { mn: "Веб", en: "Web" },
         desc: {
-          mn: "Хуульч, өмгөөлөгчтэй зөвлөгөө захиалах онлайн платформ — миний анхны веб төсөл.",
+          mn: "Хуульч, өмгөөлөгчтэй зөвлөгөө захиалах онлайн платформ — миний анхны вэб төсөл.",
           en: "Online platform to book lawyers and legal consultations — my first web project.",
         },
         tags: ["Web", "First project"],
@@ -152,7 +152,7 @@ export const content = {
         year: "2019–2026",
         category: { mn: "Маркетинг", en: "Marketing" },
         desc: {
-          mn: "Гоо сайхны салбарын 4 эмнэлгийн сошиал маркетинг, контент, постер дизайн, зар сурталчилгааны менежмент.",
+          mn: "Гоо сайхны 4 эмнэлгийн сошиал маркетинг, контент, постер дизайн болон сурталчилгааны менежмент.",
           en: "Social media marketing, content, poster design, and ad management for 4 beauty clinics.",
         },
         tags: ["Meta Ads", "Canva", "ManyChat"],
@@ -162,21 +162,21 @@ export const content = {
   },
 
   services: {
-    label: { mn: "Юу хийдэг вэ", en: "What I do" },
-    heading: { mn: "Чамд юугаар тусалж чадах вэ", en: "How I can help you" },
+    label: { mn: "Үйлчилгээ", en: "What I do" },
+    heading: { mn: "Танд хэрхэн туслах вэ", en: "How I can help you" },
     items: [
       {
         id: "web",
         title: { mn: "Веб хөгжүүлэлт", en: "Web Development" },
         desc: {
-          mn: "Орчин үеийн, хурдан, motion-той вэбсайт & лендинг.",
+          mn: "Орчин үеийн, хурдан, motion-той вэбсайт ба лендинг хуудас.",
           en: "Modern, fast, motion-rich websites & landing pages.",
         },
         tools: "Next.js · React · TypeScript · Tailwind",
       },
       {
         id: "automation",
-        title: { mn: "AI & Автоматжуулалт", en: "AI & Automation" },
+        title: { mn: "AI ба автоматжуулалт", en: "AI & Automation" },
         desc: {
           mn: "Чатбот, захиалгын урсгал, давтагдах ажлын автоматжуулалт.",
           en: "Chatbots, order flows, and automation for repetitive work.",
@@ -187,14 +187,14 @@ export const content = {
         id: "saas",
         title: { mn: "SaaS хөгжүүлэлт", en: "SaaS Development" },
         desc: {
-          mn: "Authentication, dashboard, өгөгдлийн сантай бүрэн бүтээгдэхүүн.",
+          mn: "Нэвтрэлт, удирдлагын самбар, өгөгдлийн сан бүхий бүрэн бүтээгдэхүүн.",
           en: "Full products with authentication, dashboards, and databases.",
         },
         tools: "Supabase · PostgreSQL · Next.js",
       },
       {
         id: "design",
-        title: { mn: "UI/UX & Motion", en: "UI/UX & Motion" },
+        title: { mn: "UI/UX ба Motion", en: "UI/UX & Motion" },
         desc: {
           mn: "Цэвэрхэн интерфейс, нарийн motion дизайн, micro-interaction.",
           en: "Clean interfaces, refined motion design, and micro-interactions.",
@@ -219,41 +219,41 @@ export const content = {
       },
       {
         year: "2020",
-        title: { mn: "Үргэлжлэл", en: "Growing" },
-        desc: { mn: "Renew Beauty Clinic — контент, зар сурталчилгаа.", en: "Renew Beauty Clinic — content and ad campaigns." },
+        title: { mn: "Өсөлт", en: "Growing" },
+        desc: { mn: "Renew Beauty Clinic — контент ба сурталчилгааны кампанит ажил.", en: "Renew Beauty Clinic — content and ad campaigns." },
       },
       {
         year: "2021–2023",
-        title: { mn: "Тогтвортой захиалагч", en: "Long-term client" },
+        title: { mn: "Урт хугацааны хамтрагч", en: "Long-term client" },
         desc: { mn: "Friends Beauty Clinic — урт хугацааны SMM хамтын ажиллагаа.", en: "Friends Beauty Clinic — a long-term SMM partnership." },
       },
       {
         year: "2022",
-        title: { mn: "Анхны веб төсөл", en: "First web project" },
-        desc: { mn: "Хуульч захиалах онлайн платформ — код руу анхны алхам.", en: "Online lawyer-booking platform — my first step into code." },
+        title: { mn: "Анхны вэб төсөл", en: "First web project" },
+        desc: { mn: "Хуульч захиалах онлайн платформ — код руу хийсэн анхны алхам.", en: "Online lawyer-booking platform — my first step into code." },
         highlight: true,
       },
       {
         year: "2024",
         title: { mn: "Бакалавр төгссөн", en: "Graduated" },
-        desc: { mn: "ШУТИС — Мэдээлэл холбооны технологи.", en: "MUST — Information & Communication Technology." },
+        desc: { mn: "ШУТИС — Мэдээлэл холбооны технологийн бакалавр.", en: "MUST — Information & Communication Technology." },
         highlight: true,
       },
       {
         year: "2024–2026",
         title: { mn: "Үргэлжилж буй хамтын ажиллагаа", en: "Ongoing partnership" },
-        desc: { mn: "Nature Skin Clinic — SMM, одоо ч үргэлжилж байна.", en: "Nature Skin Clinic — SMM, still ongoing." },
+        desc: { mn: "Nature Skin Clinic — SMM, өнөөг хүртэл үргэлжилж байна.", en: "Nature Skin Clinic — SMM, still ongoing." },
       },
       {
         year: "2025",
-        title: { mn: "Автоматжуулалт + KnowHub", en: "Automation + KnowHub" },
-        desc: { mn: "Suvdandusal автоматжуулалт хийж, KnowHub чиглэлээ эхлүүлсэн.", en: "Built the Suvdandusal automation and started KnowHub." },
+        title: { mn: "Автоматжуулалт ба KnowHub", en: "Automation + KnowHub" },
+        desc: { mn: "Suvdandusal-ийн автоматжуулалтыг бүтээж, KnowHub чиглэлээ эхлүүлсэн.", en: "Built the Suvdandusal automation and started KnowHub." },
         highlight: true,
       },
       {
         year: "2025–2026",
-        title: { mn: "Full-stack эра", en: "Full-stack era" },
-        desc: { mn: "DreamTrip, Khan Consulting, Tender Monitor — вэб + автоматжуулалт.", en: "DreamTrip, Khan Consulting, Tender Monitor — web + automation." },
+        title: { mn: "Full-stack үе", en: "Full-stack era" },
+        desc: { mn: "DreamTrip, Khan Consulting, Tender Monitor — вэб ба автоматжуулалт.", en: "DreamTrip, Khan Consulting, Tender Monitor — web + automation." },
         highlight: true,
       },
     ],
@@ -261,9 +261,9 @@ export const content = {
 
   contact: {
     label: { mn: "Холбоо барих", en: "Contact" },
-    heading: { mn: "Хамтдаа ажиллах уу?", en: "Let's build something" },
+    heading: { mn: "Хамтдаа бүтээх үү?", en: "Let's build something" },
     sub: {
-      mn: "Төсөл, хамтын ажиллагааны санал байвал бичээрэй.",
+      mn: "Төсөл эсвэл хамтын ажиллагааны санал байвал бичээрэй.",
       en: "Got a project or an idea? Drop me a line.",
     },
     emailLabel: { mn: "Имэйл", en: "Email" },
@@ -284,15 +284,15 @@ export const content = {
   finale: {
     heading: { mn: "Хамтдаа од асаах уу?", en: "Let's light up a star together" },
     sub: {
-      mn: "Төсөл, санаа байвал нэг дурсамж үлдээгээрэй — би хариулна.",
-      en: "Got a project or an idea? Leave a memory — I'll reply.",
+      mn: "Хамтран ажиллах болон төслийн захиалга байвал утасны дугаараа оруулан дурсамжийн хайрцагт зурвас үлдээнэ үү. Би эргэн холбогдох болно. Баярлалаа.",
+      en: "Want to work together or commission a project? Leave a message with your phone number in the memory box and I'll get back to you. Thank you.",
     },
     continued: { mn: "Үргэлжлэл бий…", en: "To be continued…" },
   },
 
   footer: {
     rights: { mn: "Бүх эрх хуулиар хамгаалагдсан.", en: "All rights reserved." },
-    built: { mn: "Next.js & Framer Motion-оор бүтээв.", en: "Built with Next.js & Framer Motion." },
+    built: { mn: "Next.js ба Framer Motion-оор бүтээв.", en: "Built with Next.js & Framer Motion." },
   },
 } as const;
 
