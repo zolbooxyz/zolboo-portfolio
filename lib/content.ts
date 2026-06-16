@@ -38,8 +38,8 @@ export const content = {
       mn: "Энд зочилсон хүн бүрийн үлдээсэн ул мөр мөнхөд гэрэлтэн үлдэнэ.",
       en: "Every visitor leaves a trace here — left to glow for good.",
     },
-    cta: { mn: "Дурсамж үлдээх", en: "Leave a memory" },
-    formTitle: { mn: "Дурсамж үлдээх", en: "Leave a memory" },
+    cta: { mn: "Дурсамж үлдээх", en: "Add a memory" },
+    formTitle: { mn: "Дурсамж үлдээх", en: "Add a memory" },
     formEyebrow: { mn: "Дурсамжийн өрөө", en: "Room of Memories" },
     formIntro: {
       mn: "Энэхүү вебээр зочлон надтай танилцсанд баярлалаа. Хамтарч ажиллах санал болон үлдээх сэтгэгдэл байвал дурсамжийн хайрцагт зурвас үлдээгээд хадгалаарай. Баярлалаа.",
