@@ -153,6 +153,47 @@ class SoundFX {
     src.stop(now + dur + 0.03);
   }
 
+  // FM bell — a sine carrier modulated by a sine at `ratio`, with the modulation
+  // index decaying so it opens bright then mellows. Glassy/metallic but soft:
+  // the sci-fi "interface" timbre. `glideTo` optionally pitches the carrier.
+  private fm(
+    carrier: number,
+    ratio: number,
+    index: number,
+    dur: number,
+    peak = 0.05,
+    delay = 0,
+    glideTo?: number,
+  ) {
+    const ctx = this.ctx;
+    const master = this.master;
+    if (!ctx || !master) return;
+    const now = ctx.currentTime + 0.02 + delay;
+    const car = ctx.createOscillator();
+    car.type = "sine";
+    car.frequency.setValueAtTime(carrier, now);
+    if (glideTo != null) car.frequency.exponentialRampToValueAtTime(Math.max(1, glideTo), now + dur);
+    const mod = ctx.createOscillator();
+    mod.type = "sine";
+    mod.frequency.value = carrier * ratio;
+    const modGain = ctx.createGain();
+    const depth = carrier * ratio * index;
+    modGain.gain.setValueAtTime(depth, now);
+    modGain.gain.exponentialRampToValueAtTime(Math.max(1, depth * 0.08), now + dur); // index decay
+    mod.connect(modGain);
+    modGain.connect(car.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(peak, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    car.connect(g);
+    g.connect(master);
+    mod.start(now);
+    car.start(now);
+    mod.stop(now + dur + 0.05);
+    car.stop(now + dur + 0.05);
+  }
+
   // --- public: play a named effect ---------------------------------------
   play(name: SfxName) {
     if (this.muted || this.reduced) return;
@@ -160,48 +201,56 @@ class SoundFX {
     if (!this.ctx || !this.master) return;
     switch (name) {
       case "hover":
-        this.tone(1320, 0.05, "sine", 0.03);
+        // a tiny glassy FM blip with a soft upward micro-glide
+        this.fm(1280, 2.0, 0.5, 0.06, 0.025, 0, 1500);
         break;
       case "click":
-        this.tone(660, 0.06, "triangle", 0.05, 860);
-        this.tone(1040, 0.05, "sine", 0.025, undefined, 0.02);
+        // soft descending "select" — a glassy bell over a gentle glide
+        this.fm(900, 1.5, 0.8, 0.08, 0.04, 0, 560);
+        this.tone(1300, 0.05, "sine", 0.018, undefined, 0.02);
         break;
       case "open":
-        this.noise(0.36, 240, 1800, 0.05);
-        this.tone(420, 0.32, "sine", 0.045, 880);
+        // a rising portal sweep + airy noise
+        this.noise(0.36, 240, 1600, 0.04);
+        this.tone(360, 0.34, "sine", 0.04, 900);
+        this.fm(520, 2.0, 0.6, 0.3, 0.02, 0.04, 1040);
         break;
       case "close":
-        this.noise(0.28, 1700, 300, 0.045);
-        this.tone(760, 0.24, "sine", 0.04, 340);
+        this.noise(0.3, 1500, 280, 0.035);
+        this.tone(760, 0.26, "sine", 0.035, 320);
         break;
       case "confirm":
-        this.tone(660, 0.12, "sine", 0.07, undefined, 0);
-        this.tone(880, 0.12, "sine", 0.07, undefined, 0.09);
-        this.tone(1320, 0.2, "sine", 0.07, undefined, 0.18);
+        // a soft glassy bell arpeggio, ascending then settling
+        this.fm(523.25, 2.0, 1.0, 0.22, 0.05, 0); // C5
+        this.fm(659.25, 2.0, 1.0, 0.22, 0.05, 0.09); // E5
+        this.fm(783.99, 3.0, 0.8, 0.3, 0.05, 0.18); // G5
         break;
       case "error":
-        this.tone(170, 0.24, "triangle", 0.08, 120, 0, 700);
-        this.tone(115, 0.26, "triangle", 0.06, 90, 0.04, 600);
+        // gentle low de-tune, not harsh
+        this.fm(220, 1.4, 1.2, 0.26, 0.06, 0, 150);
+        this.tone(140, 0.26, "sine", 0.05, 105, 0.04);
         break;
       case "lock":
-        this.tone(1180, 0.04, "triangle", 0.045);
-        this.tone(1560, 0.06, "sine", 0.045, undefined, 0.06);
+        // sci-fi "target lock": quick rising glide + a glassy ping
+        this.tone(640, 0.07, "sine", 0.03, 1400);
+        this.fm(1560, 3.0, 0.7, 0.1, 0.035, 0.05);
         break;
       case "tick":
-        this.tone(1800, 0.016, "sine", 0.018);
+        this.fm(1600, 2.0, 0.4, 0.02, 0.014);
         break;
       case "toggle":
-        this.tone(820, 0.07, "sine", 0.06, 1180);
+        this.fm(760, 1.5, 0.8, 0.09, 0.05, 0, 1140);
         break;
       case "boot":
-        this.tone(170, 0.55, "sine", 0.06, 1000);
-        this.tone(1180, 0.14, "sine", 0.06, undefined, 0.5);
-        this.noise(0.5, 200, 2000, 0.03);
+        // a slow rising sweep resolving into a soft bell
+        this.tone(150, 0.6, "sine", 0.05, 900);
+        this.fm(880, 2.0, 1.0, 0.5, 0.045, 0.45);
+        this.noise(0.5, 180, 1600, 0.025);
         break;
       case "step":
         // a soft low footfall + a faint scuff, synced to the scrubbed walk
         this.tone(70, 0.13, "sine", 0.07, 46);
-        this.noise(0.05, 200, 80, 0.025);
+        this.noise(0.05, 200, 80, 0.022);
         break;
     }
   }
