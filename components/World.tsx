@@ -934,6 +934,9 @@ export default function World() {
 
     const skillTicked = new Array(SKILLS.length).fill(false); // soft blip as each skill row locks in
     let ambFrame = 0; // throttles the ambient-pad crossfade updates
+    let lastStep = -1; // footstep bucket along the scrubbed walk
+    const sndFwd = new THREE.Vector3(); // listener forward (scratch)
+    const sndUp = new THREE.Vector3(); // listener up (scratch)
 
     const tick = () => {
       t += 0.016;
@@ -1238,10 +1241,43 @@ export default function World() {
 
       // ambient pads: keep the bed alive (once audio is unlocked) and crossfade
       // void → memory room → finale with scroll progress; throttled to ~8 Hz
-      if ((ambFrame++ & 7) === 0) {
+      if ((ambFrame & 7) === 0) {
         sfx.ensureAmbient();
         sfx.setAmbientProgress(p);
       }
+
+      // footsteps: a soft footfall each step-bucket as the scrubbed walk advances
+      const walkP = (p - 0.16) / (0.6 - 0.16);
+      if (walkP > 0 && walkP < 1) {
+        const step = Math.floor(walkP * 11);
+        if (step !== lastStep) {
+          lastStep = step;
+          sfx.play("step");
+        }
+      } else {
+        lastStep = -1;
+      }
+
+      // spatial memory cubes: point the listener at the camera and pan the
+      // nearest glowing cubes around it in 3D (only in the room; throttled)
+      if ((ambFrame & 3) === 0 && gridUniforms.uReveal.value > 0.2) {
+        sfx.ensureSpatial();
+        camera.getWorldDirection(sndFwd);
+        sndUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+        sfx.setListener(
+          camera.position.x, camera.position.y, camera.position.z,
+          sndFwd.x, sndFwd.y, sndFwd.z,
+          sndUp.x, sndUp.y, sndUp.z,
+        );
+        const occ: { id: string; x: number; y: number; z: number }[] = [];
+        for (let i = 0; i < occGroup.children.length; i++) {
+          const g = occGroup.children[i];
+          const id = g.userData.memId as string | undefined;
+          if (id) occ.push({ id, x: g.position.x, y: g.position.y, z: g.position.z });
+        }
+        sfx.updateSpatial({ x: camera.position.x, y: camera.position.y, z: camera.position.z }, occ);
+      }
+      ambFrame++;
 
       composer.render();
       raf = requestAnimationFrame(tick);

@@ -12,7 +12,8 @@ export type SfxName =
   | "lock"
   | "tick"
   | "boot"
-  | "toggle";
+  | "toggle"
+  | "step";
 
 class SoundFX {
   private ctx: AudioContext | null = null;
@@ -73,9 +74,11 @@ class SoundFX {
     } catch {
       /* ignore */
     }
-    // fade the ambient bed with the mute toggle
-    if (this.ambient && this.ctx) {
-      this.ambient.master.gain.setTargetAtTime(m ? 0 : 1, this.ctx.currentTime, 0.15);
+    // fade the ambient bed + spatial cubes with the mute toggle
+    if (this.ctx) {
+      const t = this.ctx.currentTime;
+      this.ambient?.master.gain.setTargetAtTime(m ? 0 : 1, t, 0.15);
+      this.spatial?.master.gain.setTargetAtTime(m ? 0 : 1, t, 0.15);
     }
   }
 
@@ -190,6 +193,11 @@ class SoundFX {
         this.tone(1320, 0.12, "sine", 0.1, undefined, 0.5);
         this.noise(0.5, 200, 3000, 0.05);
         break;
+      case "step":
+        // a soft low footfall + a faint scuff, synced to the scrubbed walk
+        this.tone(72, 0.12, "sine", 0.11, 48);
+        this.noise(0.05, 240, 90, 0.04);
+        break;
     }
   }
 
@@ -249,6 +257,102 @@ class SoundFX {
     this.ambient.voices[0].gain.setTargetAtTime(w0 * lvl, t, 0.5);
     this.ambient.voices[1].gain.setTargetAtTime(w1 * lvl, t, 0.5);
     this.ambient.voices[2].gain.setTargetAtTime(w2 * lvl * 1.2, t, 0.5);
+  }
+
+  // --- spatial memory cubes: a small pool of HRTF-panned voices that attach to
+  // the nearest occupied cubes, so flying through the lattice pans the glowing
+  // nodes around the listener (camera) in 3D ----------------------------------
+  private spatial: { master: GainNode; voices: { panner: PannerNode; gain: GainNode; osc: OscillatorNode; id: string | null }[] } | null = null;
+
+  ensureSpatial() {
+    if (this.spatial || this.reduced) return;
+    this.init();
+    if (!this.ctx || !this.master || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const master = ctx.createGain();
+    master.gain.value = this.muted ? 0 : 1;
+    master.connect(this.master);
+    const voices = [];
+    for (let i = 0; i < 5; i++) {
+      const panner = ctx.createPanner();
+      panner.panningModel = "HRTF";
+      panner.distanceModel = "inverse";
+      panner.refDistance = 10;
+      panner.maxDistance = 90;
+      panner.rolloffFactor = 1.4;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = 220;
+      osc.connect(gain);
+      gain.connect(panner);
+      panner.connect(master);
+      osc.start();
+      voices.push({ panner, gain, osc, id: null as string | null });
+    }
+    this.spatial = { master, voices };
+  }
+
+  /** point the audio listener at the camera (modern AudioParam or legacy API) */
+  setListener(px: number, py: number, pz: number, fx: number, fy: number, fz: number, ux: number, uy: number, uz: number) {
+    if (!this.ctx) return;
+    const l = this.ctx.listener;
+    const t = this.ctx.currentTime;
+    if (l.positionX) {
+      l.positionX.setTargetAtTime(px, t, 0.02);
+      l.positionY.setTargetAtTime(py, t, 0.02);
+      l.positionZ.setTargetAtTime(pz, t, 0.02);
+      l.forwardX.setTargetAtTime(fx, t, 0.02);
+      l.forwardY.setTargetAtTime(fy, t, 0.02);
+      l.forwardZ.setTargetAtTime(fz, t, 0.02);
+      l.upX.setTargetAtTime(ux, t, 0.02);
+      l.upY.setTargetAtTime(uy, t, 0.02);
+      l.upZ.setTargetAtTime(uz, t, 0.02);
+    } else {
+      l.setPosition(px, py, pz);
+      l.setOrientation(fx, fy, fz, ux, uy, uz);
+    }
+  }
+
+  /** assign the pool to the nearest occupied cubes and pan them in 3D */
+  updateSpatial(cam: { x: number; y: number; z: number }, cubes: { id: string; x: number; y: number; z: number }[]) {
+    if (!this.spatial || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const voices = this.spatial.voices;
+    if (this.muted || !cubes.length) {
+      for (const v of voices) v.gain.gain.setTargetAtTime(0, t, 0.25);
+      return;
+    }
+    const near = cubes
+      .map((c) => ({ ...c, d: Math.hypot(c.x - cam.x, c.y - cam.y, c.z - cam.z) }))
+      .sort((a, b) => a.d - b.d);
+    const scale = [0, 3, 5, 7, 10, 12, 15]; // minor-pentatonic-ish intervals
+    for (let i = 0; i < voices.length; i++) {
+      const v = voices[i];
+      const c = near[i];
+      if (c && c.d < 85) {
+        if (v.id !== c.id) {
+          v.id = c.id;
+          let h = 0;
+          for (let k = 0; k < c.id.length; k++) h = (h * 31 + c.id.charCodeAt(k)) >>> 0;
+          const note = scale[h % scale.length] + (h % 2) * 12; // spread across an octave
+          v.osc.frequency.setTargetAtTime(196 * Math.pow(2, note / 12), t, 0.06);
+        }
+        if (v.panner.positionX) {
+          v.panner.positionX.setTargetAtTime(c.x, t, 0.05);
+          v.panner.positionY.setTargetAtTime(c.y, t, 0.05);
+          v.panner.positionZ.setTargetAtTime(c.z, t, 0.05);
+        } else {
+          v.panner.setPosition(c.x, c.y, c.z);
+        }
+        const prox = Math.max(0, 1 - c.d / 85);
+        v.gain.gain.setTargetAtTime(0.045 * prox * prox, t, 0.2);
+      } else {
+        v.id = null;
+        v.gain.gain.setTargetAtTime(0, t, 0.3);
+      }
+    }
   }
 }
 
