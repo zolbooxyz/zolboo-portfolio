@@ -19,6 +19,18 @@ export default function Loader() {
   const [done, setDone] = useState(false);
   const textRef = useRef<HTMLSpanElement>(null);
   const [w, setW] = useState(0); // measured wordmark width → ball travel + spin
+  const [pct, setPct] = useState(0); // figure download progress (0..100)
+
+  // stream the 3D figure's download progress into the readout
+  useEffect(() => {
+    const on = () => {
+      const p = (window as unknown as { __sceneProgress?: number }).__sceneProgress ?? 0;
+      setPct(Math.round(p * 100));
+    };
+    window.addEventListener("scene-progress", on);
+    window.addEventListener("scene-ready", () => setPct(100), { once: true });
+    return () => window.removeEventListener("scene-progress", on);
+  }, []);
 
   useEffect(() => {
     const lenis = (window as unknown as { lenis?: Lenis }).lenis;
@@ -43,13 +55,28 @@ export default function Loader() {
     };
 
     window.addEventListener("scene-ready", reveal, { once: true });
-    const win = window as unknown as { __sceneReady?: boolean };
+    const win = window as unknown as { __sceneReady?: boolean; __webglActive?: boolean };
+
+    // when the heavy 3D scene is in play, hold the veil until the figure has
+    // actually loaded (scene-ready) — only fall back after a long safety cap so
+    // a slow model download never reveals an empty stage. With no WebGL the
+    // event never fires, so dismiss quickly.
+    const armFallback = () => {
+      window.clearTimeout(fallback);
+      fallback = window.setTimeout(reveal, win.__webglActive ? 25000 : 2400);
+    };
+
     if (win.__sceneReady) reveal();
-    // fallback in case WebGL is unavailable / the event never fires
-    else fallback = window.setTimeout(reveal, 2400);
+    else {
+      armFallback();
+      // World flags WebGL the moment it commits to the 3D path — re-arm the
+      // fallback to the long cap if that happens after we mounted
+      window.addEventListener("scene-loading", armFallback, { once: true });
+    }
 
     return () => {
       window.removeEventListener("scene-ready", reveal);
+      window.removeEventListener("scene-loading", armFallback);
       window.clearTimeout(fallback);
       window.clearTimeout(pending);
     };
@@ -219,6 +246,12 @@ export default function Loader() {
                 </div>
               </>
             )}
+          </div>
+
+          {/* figure download progress — a calm readout so a slow model load
+              never looks frozen */}
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.4em] text-accent/55">
+            {pct > 0 && pct < 100 ? `Loading figure · ${pct}%` : pct >= 100 ? "Ready" : ""}
           </div>
         </motion.div>
       )}

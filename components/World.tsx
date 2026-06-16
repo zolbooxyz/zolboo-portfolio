@@ -244,6 +244,11 @@ export default function World() {
       return;
     }
 
+    // tell the loader the heavy 3D scene is loading so it holds the veil until
+    // the figure is actually ready (scene-ready) instead of timing out early
+    (window as unknown as { __webglActive?: boolean }).__webglActive = true;
+    window.dispatchEvent(new Event("scene-loading"));
+
     // always open on the blank void + greeting (don't let the browser restore a
     // prior scroll position, which would pop the figure in under the greeting)
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
@@ -681,6 +686,12 @@ export default function World() {
       // tell the entry veil the heavy load is done so it can fade away
       (window as unknown as { __sceneReady?: boolean }).__sceneReady = true;
       window.dispatchEvent(new Event("scene-ready"));
+    }, (e) => {
+      // stream the figure download progress to the loader's readout
+      if (e.lengthComputable) {
+        (window as unknown as { __sceneProgress?: number }).__sceneProgress = e.loaded / e.total;
+        window.dispatchEvent(new Event("scene-progress"));
+      }
     });
 
     // mouse parallax
