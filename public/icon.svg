@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- leaf -->
+  <path d="M33 19c2-7 9-11 16-10 1 7-5 13-13 13-2 0-3-1-3-3z" fill="#2BA64A"/>
+  <!-- stem -->
+  <path d="M32 20c0-4 0-7 1-10" stroke="#7A5230" stroke-width="3.2" stroke-linecap="round"/>
+  <!-- apple body with a soft top dimple -->
+  <path d="M32 21c-6-6-18-4-20 8-2 12 6 28 16 28 1.5 0 3-.4 4-1.2 1 .8 2.5 1.2 4 1.2 10 0 18-16 16-28-2-12-14-14-20-8z" fill="#35C85A"/>
+  <!-- highlight -->
+  <path d="M21 27c-2 2-3.5 5-3 9" stroke="#BFF5CF" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+</svg>

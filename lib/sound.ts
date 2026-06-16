@@ -236,7 +236,9 @@ class SoundFX {
         this.fm(1560, 3.0, 0.7, 0.1, 0.035, 0.05);
         break;
       case "tick":
-        this.fm(1600, 2.0, 0.4, 0.02, 0.014);
+        // a defined soft "key" — a glassy blip with a tiny click body
+        this.fm(1500, 2.0, 0.5, 0.028, 0.04);
+        this.noise(0.012, 1900, 700, 0.02);
         break;
       case "toggle":
         this.fm(760, 1.5, 0.8, 0.09, 0.05, 0, 1140);

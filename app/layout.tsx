@@ -30,11 +30,14 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Zolboo — Web Developer & Automation",
+  title: "Zolboo.Xyz",
   description:
     "Web developer & automation specialist building websites and automation for Mongolian businesses.",
+  icons: {
+    icon: "/icon.svg",
+  },
   openGraph: {
-    title: "Zolboo — Web Developer & Automation",
+    title: "Zolboo.Xyz",
     description:
       "Building websites and automation for Mongolian businesses.",
     type: "website",
