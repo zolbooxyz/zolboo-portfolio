@@ -43,7 +43,7 @@ class SoundFX {
         const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         this.ctx = new AC();
         this.master = this.ctx.createGain();
-        this.master.gain.value = 0.28; // softer overall
+        this.master.gain.value = 0.42; // brings up the interaction/motion sounds
         // gentle lowpass on the bus rounds off harsh highs for a softer character
         const softLp = this.ctx.createBiquadFilter();
         softLp.type = "lowpass";
@@ -350,7 +350,9 @@ class SoundFX {
     const w1 = ss(0.46, 0.62) * (1 - ss(0.86, 0.96)); // room — open, warm
     const w2 = ss(0.86, 0.96); // finale — settled
     const norm = w0 + w1 + w2 || 1;
-    const lvl = 0.024; // very quiet
+    // master was raised to lift the motion sounds — drop the bed's level the same
+    // amount so the ambient stays just as quiet as before (0.024 * 0.28/0.42)
+    const lvl = 0.016;
     const t = this.ctx.currentTime;
     this.ambient.sub.gain.setTargetAtTime(lvl * 0.5, t, 1.0);
     this.ambient.drone.gain.setTargetAtTime((lvl * (w0 * 0.7 + w1 * 1.0 + w2 * 0.85)) / norm, t, 0.9);
