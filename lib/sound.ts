@@ -73,6 +73,10 @@ class SoundFX {
     } catch {
       /* ignore */
     }
+    // fade the ambient bed with the mute toggle
+    if (this.ambient && this.ctx) {
+      this.ambient.master.gain.setTargetAtTime(m ? 0 : 1, this.ctx.currentTime, 0.15);
+    }
   }
 
   // --- low-level synth helpers -------------------------------------------
@@ -187,6 +191,64 @@ class SoundFX {
         this.noise(0.5, 200, 3000, 0.05);
         break;
     }
+  }
+
+  // --- ambient pads: three evolving voices that crossfade with scroll -------
+  // void (cold/low) → memory room (warm cyan) → finale (resolved chord)
+  private ambient: { master: GainNode; voices: GainNode[] } | null = null;
+
+  private buildVoice(freqs: number[], lowpass: number): GainNode {
+    const ctx = this.ctx!;
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    const filt = ctx.createBiquadFilter();
+    filt.type = "lowpass";
+    filt.frequency.value = lowpass;
+    filt.Q.value = 0.6;
+    freqs.forEach((f, i) => {
+      const o = ctx.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = f;
+      o.detune.value = (i % 2 === 0 ? 1 : -1) * (4 + i * 2); // gentle chorus
+      o.connect(filt);
+      o.start();
+    });
+    filt.connect(g);
+    return g;
+  }
+
+  /** start the looping ambient bed (idempotent; needs a running context) */
+  ensureAmbient() {
+    if (this.ambient || this.reduced) return;
+    this.init();
+    if (!this.ctx || !this.master || this.ctx.state !== "running") return;
+    const ambMaster = this.ctx.createGain();
+    ambMaster.gain.value = this.muted ? 0 : 1;
+    ambMaster.connect(this.master);
+    const voidV = this.buildVoice([55, 82.5, 110], 360); // A1 · E2 · A2 — cold drone
+    const roomV = this.buildVoice([110, 164.81, 220, 277.18], 880); // A2 · E3 · A3 · C#4 — cyan pad
+    const finV = this.buildVoice([130.81, 196, 261.63, 329.63], 1150); // C3 · G3 · C4 · E4 — resolved
+    voidV.connect(ambMaster);
+    roomV.connect(ambMaster);
+    finV.connect(ambMaster);
+    this.ambient = { master: ambMaster, voices: [voidV, roomV, finV] };
+  }
+
+  /** crossfade the three pads to scroll progress p (0..1) */
+  setAmbientProgress(p: number) {
+    if (!this.ambient || !this.ctx) return;
+    const ss = (a: number, b: number) => {
+      const t = Math.max(0, Math.min(1, (p - a) / (b - a)));
+      return t * t * (3 - 2 * t);
+    };
+    const w0 = 1 - ss(0.42, 0.6); // void
+    const w1 = ss(0.46, 0.62) * (1 - ss(0.86, 0.96)); // room
+    const w2 = ss(0.86, 0.96); // finale
+    const lvl = 0.05; // quiet — sits well under the SFX
+    const t = this.ctx.currentTime;
+    this.ambient.voices[0].gain.setTargetAtTime(w0 * lvl, t, 0.5);
+    this.ambient.voices[1].gain.setTargetAtTime(w1 * lvl, t, 0.5);
+    this.ambient.voices[2].gain.setTargetAtTime(w2 * lvl * 1.2, t, 0.5);
   }
 }
 

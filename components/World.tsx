@@ -933,6 +933,7 @@ export default function World() {
     const ease = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 
     const skillTicked = new Array(SKILLS.length).fill(false); // soft blip as each skill row locks in
+    let ambFrame = 0; // throttles the ambient-pad crossfade updates
 
     const tick = () => {
       t += 0.016;
@@ -1220,10 +1221,10 @@ export default function World() {
             const r = rows[i] as HTMLElement;
             const rin = ease(clamp01((p - (0.2 + i * 0.045)) / 0.06)); // staggered scrub-in
             const vis = rin * (1 - skOut);
-            const x = (1 - rin) * 46 + skOut * 64; // slide in from the right, exit further right
+            const x = (1 - rin) * 46 + skOut * 64; // slide in, then retreat as the dive nears
             r.style.opacity = vis.toFixed(3);
             r.style.transform = `translate3d(${x.toFixed(1)}px,0,0)`;
-            r.style.clipPath = `inset(0 0 0 ${((1 - rin) * 100).toFixed(1)}%)`; // wipe left→right
+            r.style.clipPath = `inset(0 ${((1 - rin) * 100).toFixed(1)}% 0 0)`; // reveal left→right (works L/R aligned)
             // a soft blip the moment each row locks in (reset when scrolled back up)
             if (rin > 0.6 && !skillTicked[i]) {
               skillTicked[i] = true;
@@ -1235,8 +1236,12 @@ export default function World() {
         }
       }
 
-      // chapter sections (about/journey/works/contact) are deferred for now —
-      // re-enable by wiring their reveals back to scroll beats once they return.
+      // ambient pads: keep the bed alive (once audio is unlocked) and crossfade
+      // void → memory room → finale with scroll progress; throttled to ~8 Hz
+      if ((ambFrame++ & 7) === 0) {
+        sfx.ensureAmbient();
+        sfx.setAmbientProgress(p);
+      }
 
       composer.render();
       raf = requestAnimationFrame(tick);
@@ -1373,10 +1378,10 @@ export default function World() {
               you scroll the walk (p≈0.18→0.5), then clears before the dive */}
           <div
             ref={hudSkillsRef}
-            className="absolute right-8 top-1/2 hidden max-w-[18rem] -translate-y-1/2 sm:right-16 sm:block lg:right-24"
+            className="absolute left-5 right-12 top-1/2 -translate-y-1/2 text-left sm:left-auto sm:right-16 sm:max-w-[18rem] sm:text-right lg:right-24"
             style={{ opacity: 0 }}
           >
-            <div className="mb-3 flex items-center justify-end gap-2 font-mono text-[9px] uppercase tracking-[0.4em] text-accent/70">
+            <div className="mb-3 flex items-center justify-start gap-2 font-mono text-[9px] uppercase tracking-[0.4em] text-accent/70 sm:justify-end">
               <span className="h-1 w-1 animate-pulseGlow rounded-full bg-accent" />
               <ScrambleText text="SKILLS" active={heroReady} speed={30} />
             </div>
@@ -1384,7 +1389,7 @@ export default function World() {
               {SKILLS.map((s) => (
                 <div
                   key={s.cat}
-                  className="border-b border-line/50 py-2 text-right will-change-transform"
+                  className="border-b border-line/50 py-2 text-left will-change-transform sm:text-right"
                   style={{ opacity: 0 }}
                 >
                   <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent/90">{s.cat}</div>
