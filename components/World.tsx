@@ -155,22 +155,7 @@ export default function World() {
   const hudSkillsRef = useRef<HTMLDivElement>(null); // skill matrix — scrubbed in as the figure walks
   const hudSkillRowsRef = useRef<HTMLDivElement>(null); // its rows, staggered per scroll
 
-  const aboutRef = useRef<HTMLDivElement>(null);
-  const journeyRef = useRef<HTMLDivElement>(null);
-  const worksRef = useRef<HTMLDivElement>(null);
-  const worksHeadingRef = useRef<HTMLHeadingElement>(null);
-  const worksItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const contactRef = useRef<HTMLDivElement>(null);
-  const contactHeadingRef = useRef<HTMLHeadingElement>(null);
-  // parallax layers (sit between the positioning flex + the reveal layer) so the
-  // chapter text drifts/scales with the camera, feeling anchored in the world
-  const aboutWrapRef = useRef<HTMLDivElement>(null);
-  const journeyWrapRef = useRef<HTMLDivElement>(null);
-  const worksWrapRef = useRef<HTMLDivElement>(null);
-  const contactWrapRef = useRef<HTMLDivElement>(null);
-
   const [fallback, setFallback] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
   // play the HUD entrance only once the loader reveals the scene (scene-ready),
   // otherwise the cascade finishes hidden behind the loader
   const [heroReady, setHeroReady] = useState(false);
@@ -944,25 +929,8 @@ export default function World() {
       ref.style.pointerEvents = s > 0.5 ? "auto" : "none";
     };
 
-    // card-free kinetic typography: scrub each child line in with a staggered
-    // mask-reveal + rise, then slide it up and out — driven by scroll, no panel.
+    // eased 0..1 ramp used by the scroll-scrubbed skill matrix below
     const ease = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
-    const revealSection = (ref: HTMLDivElement | null, inP: number, outP: number) => {
-      if (!ref) return;
-      ref.style.opacity = "1";
-      const lines = ref.children;
-      for (let i = 0; i < lines.length; i++) {
-        const elc = lines[i] as HTMLElement;
-        const ein = ease((inP - i * 0.13) / 0.5); // staggered enter
-        const xout = ease((outP - i * 0.04) / 0.7); // exit, near-together
-        const y = (1 - ein) * 38 - xout * 64; // rise in → slide up out
-        elc.style.opacity = String(ein * (1 - xout));
-        elc.style.transform = `translate3d(0, ${y}px, 0)`;
-        elc.style.clipPath = `inset(${(1 - ein) * 100}% 0 -25% 0)`;
-        elc.style.willChange = "transform, opacity";
-      }
-      ref.style.pointerEvents = inP > 0.6 && outP < 0.4 ? "auto" : "none";
-    };
 
     const skillTicked = new Array(SKILLS.length).fill(false); // soft blip as each skill row locks in
 
@@ -1444,92 +1412,6 @@ export default function World() {
 
         </div>
 
-        {/* chapter: about — card-free kinetic type, right column */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-end px-6 sm:px-20">
-          <div ref={aboutWrapRef} className="max-w-md will-change-transform">
-          <div ref={aboutRef} className="text-left [text-shadow:0_2px_26px_rgba(0,0,0,0.9)]" style={{ opacity: 0 }}>
-            <PanelEyebrow>{t(content.about.label)}</PanelEyebrow>
-            <p className="font-display text-xl font-semibold leading-snug tracking-tight text-ink sm:text-2xl">{t(content.about.body)}</p>
-            <div className="mt-7 font-mono text-xs text-muted">{t(content.about.edu)}</div>
-            <div className="mt-1 font-mono text-xs text-accent/80">{t(content.about.now)}</div>
-          </div>
-          </div>
-        </div>
-
-        {/* chapter: journey — compact timeline of milestones, left column (figure
-            walks to the right) — the walk reads as moving forward through time */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-start px-6 text-left sm:px-20">
-          <div ref={journeyWrapRef} className="max-w-md will-change-transform">
-          <div ref={journeyRef} className="[text-shadow:0_2px_26px_rgba(0,0,0,0.9)]" style={{ opacity: 0 }}>
-            <PanelEyebrow>{t(content.journey.label)}</PanelEyebrow>
-            <h2 className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">{t(content.journey.heading)}</h2>
-            <div className="mt-6 space-y-3 border-l border-white/12 pl-5">
-              {content.journey.items.filter((it) => "highlight" in it && it.highlight).map((it) => (
-                <div key={it.year} className="relative">
-                  <span className="absolute -left-[23px] top-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
-                  <div className="font-mono text-[10px] uppercase tracking-wider text-accent/80">{it.year}</div>
-                  <div className="font-display text-base font-semibold tracking-tight text-ink">{t(it.title)}</div>
-                  <div className="text-sm text-muted">{t(it.desc)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          </div>
-        </div>
-
-        {/* chapter: works — card-free; rows fly in and assemble, right column */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-end px-6 sm:px-20">
-          <div ref={worksWrapRef} className="w-full max-w-md will-change-transform">
-          <div ref={worksRef} className="w-full [text-shadow:0_2px_22px_rgba(0,0,0,0.85)]" style={{ opacity: 0 }}>
-            <PanelEyebrow>{t(content.projects.label)}</PanelEyebrow>
-            <h2 ref={worksHeadingRef} className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">{t(content.projects.heading)}</h2>
-            <div className="mt-5 border-t border-white/10">
-              {content.projects.items.map((p, i) => (
-                <button
-                  key={p.id}
-                  ref={(el) => {
-                    worksItemRefs.current[i] = el;
-                  }}
-                  onClick={() => setSelected(p.id)}
-                  className="group flex w-full items-center gap-4 border-b border-line py-3 text-left transition-colors will-change-transform hover:bg-accent/[0.04]"
-                  style={{ opacity: 0 }}
-                >
-                  <span className="font-mono text-[10px] text-muted/60">{String(i + 1).padStart(2, "0")}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-display text-lg font-bold tracking-tight text-ink transition-colors group-hover:text-accent">
-                      {t(p.title)}
-                    </span>
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted">
-                      {t(p.category)} · {p.year}
-                    </span>
-                  </span>
-                  <span className="shrink-0 font-mono text-xs text-muted transition-all group-hover:translate-x-0.5 group-hover:text-accent">↗</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          </div>
-        </div>
-
-        {/* chapter: contact — card-free oversized kinetic headline, left column */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-start px-6 text-left sm:px-20">
-          <div ref={contactWrapRef} className="max-w-xl will-change-transform">
-          <div ref={contactRef} className="[text-shadow:0_2px_30px_rgba(0,0,0,0.9)]" style={{ opacity: 0 }}>
-            <PanelEyebrow>{t(content.contact.label)}</PanelEyebrow>
-            <h2 ref={contactHeadingRef} className="font-display text-5xl font-extrabold leading-[0.95] tracking-[-0.02em] text-grad sm:text-7xl">{t(content.contact.heading)}</h2>
-            <p className="mt-5 max-w-sm text-muted">{t(content.contact.sub)}</p>
-            <div className="mt-7 space-y-2 font-mono text-sm">
-              <a href={`mailto:${content.contact.email}`} className="block w-fit text-ink transition-colors hover:text-accent">{content.contact.email}</a>
-              <a href={`tel:${content.contact.phoneRaw}`} className="block w-fit text-ink transition-colors hover:text-accent">{content.contact.phone}</a>
-              <div className="text-muted">{t(content.contact.location)}</div>
-            </div>
-          </div>
-          </div>
-        </div>
-
-        {/* project detail panel */}
-        {selected && <DetailPanel id={selected} onClose={() => setSelected(null)} />}
-
         {/* visitor memory nickname labels — each rides on its lattice cube, the
             tick projects its 3D centre to screen every frame (mono cyan to match
             the wireframe). Click → glass card with the full message. */}
@@ -1664,7 +1546,7 @@ function ScrollRail() {
 
   return (
     <div
-      className="pointer-events-none absolute right-6 top-1/2 z-20 hidden -translate-y-1/2 flex-col items-center transition-opacity duration-500 sm:right-9 sm:flex"
+      className="pointer-events-none absolute right-5 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center transition-opacity duration-500 sm:right-9"
       style={{ opacity: p > 0.01 ? 1 : 0 }}
     >
       <div className="relative h-44 w-px bg-white/12">
@@ -1714,57 +1596,6 @@ function LangToggle() {
       <span className={`rounded-full px-2.5 py-1 ${lang === "mn" ? "bg-accent text-bg" : "text-muted"}`}>MN</span>
       <span className={`rounded-full px-2.5 py-1 ${lang === "en" ? "bg-accent text-bg" : "text-muted"}`}>EN</span>
     </button>
-  );
-}
-
-function DetailPanel({ id, onClose }: { id: string; onClose: () => void }) {
-  const { t } = useLang();
-  const p = content.projects.items.find((x) => x.id === id);
-
-  // close on Escape
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  if (!p) return null;
-  return (
-    <div role="dialog" aria-modal="true" aria-label={t(p.title)} className="pointer-events-auto absolute inset-0 z-30">
-      {/* dim backdrop — click to dismiss */}
-      <motion.button
-        aria-label={t(content.memories.close)}
-        onClick={onClose}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-        className="absolute inset-0 bg-black/40"
-      />
-      <motion.div
-        initial={{ x: "100%", opacity: 0.4 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col justify-center border-l border-white/10 bg-bg/85 p-8 shadow-[-30px_0_80px_-30px_rgba(0,0,0,0.9)] backdrop-blur-2xl backdrop-saturate-150 sm:p-12"
-      >
-        <button
-          onClick={onClose}
-          className="absolute right-6 top-6 flex items-center gap-1.5 font-mono text-xs text-muted transition-colors hover:text-accent"
-        >
-          ✕ {t(content.memories.close)}
-        </button>
-        <PanelEyebrow>
-          {t(p.category)} · {p.year}
-        </PanelEyebrow>
-        <h2 className="font-display text-4xl font-bold tracking-tight text-ink">{t(p.title)}</h2>
-        <p className="mt-4 leading-relaxed text-muted">{t(p.desc)}</p>
-        {"clients" in p && p.clients ? <p className="mt-3 font-mono text-xs text-ink/60">{p.clients}</p> : null}
-        <div className="mt-6 flex flex-wrap gap-2">
-          {p.tags.map((tag) => (
-            <span key={tag} className="rounded-md border border-line bg-bg/40 px-2.5 py-1 font-mono text-[11px] text-ink/70">{tag}</span>
-          ))}
-        </div>
-      </motion.div>
-    </div>
   );
 }
 

@@ -58,7 +58,7 @@ export default function HudOverlay() {
   for (const [p, label] of CHAPTERS) if (pct >= p) chapter = label;
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[14] hidden sm:block">
+    <div className="pointer-events-none absolute inset-0 z-[14]">
       {/* scanlines */}
       <div className="hud-scanlines absolute inset-0 opacity-60" />
 
