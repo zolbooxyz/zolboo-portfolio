@@ -85,6 +85,7 @@ class SoundFX {
       const t = this.ctx.currentTime;
       this.ambient?.master.gain.setTargetAtTime(m ? 0 : 1, t, 0.15);
       this.spatial?.master.gain.setTargetAtTime(m ? 0 : 1, t, 0.15);
+      this.motion?.master.gain.setTargetAtTime(m ? 0 : 1, t, 0.15);
     }
   }
 
@@ -257,10 +258,11 @@ class SoundFX {
     }
   }
 
-  // --- ambient: a warm, futuristic-calm bed — a deep sub, a softly detuned
-  // triangle drone breathing through a gentle (low-Q) filter, and a faint,
-  // sparse crystalline shimmer. Evolves with scroll, kept very quiet. Tuned to
-  // stay soft and non-fatiguing (no resonant "wah"). --------------------------
+  // --- ambient: a warm, calm pad — a deep sub, an all-SINE drone voicing a soft
+  // consonant G-minor chord (so it sits in tune with the spatial memory cubes,
+  // which sing a G pentatonic), and a faint, sparse crystalline shimmer on the
+  // same scale. Sines + a low-Q, barely-moving filter keep it round and
+  // non-fatiguing — no edgy triangle harmonics, no resonant "wah". -------------
   private ambient:
     | { master: GainNode; sub: GainNode; drone: GainNode; shim: GainNode; lp: BiquadFilterNode }
     | null = null;
@@ -276,7 +278,7 @@ class SoundFX {
     master.gain.value = this.muted ? 0 : 1;
     master.connect(this.master);
 
-    // deep sub — quiet body
+    // deep sub — quiet body (G1)
     const sub = ctx.createGain();
     sub.gain.value = 0;
     const subOsc = ctx.createOscillator();
@@ -286,17 +288,26 @@ class SoundFX {
     sub.connect(master);
     subOsc.start();
 
-    // warm drone: a root + octave + fifth on soft triangles, slightly detuned so
-    // they beat slowly. A GENTLE (low-Q) lowpass breathes via a very slow, shallow
-    // LFO — evolving and spacey, but never a piercing resonant sweep.
+    // warm drone: a soft G-minor pad (G2, D3 fifth, G3, + a quiet Bb3 for colour)
+    // voiced on PURE SINES so there are no harsh overtones. A pair are detuned a
+    // few cents so the chord breathes slowly instead of sitting dead still. A
+    // very gentle, almost-still low-Q lowpass rounds the top — no audible sweep.
     const lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
-    lp.Q.value = 1.2;
-    lp.frequency.value = 360;
-    [55, 55.15, 82.4, 110].forEach((f) => {
+    lp.Q.value = 0.5;
+    lp.frequency.value = 480;
+    // [freq, detune cents] — G2, D3, G3, Bb3
+    ([
+      [98, 0],
+      [98, 6],
+      [146.83, -5],
+      [196, 0],
+      [233.08, 4],
+    ] as [number, number][]).forEach(([f, det]) => {
       const o = ctx.createOscillator();
-      o.type = "triangle";
+      o.type = "sine";
       o.frequency.value = f;
+      o.detune.value = det;
       o.connect(lp);
       o.start();
     });
@@ -306,21 +317,22 @@ class SoundFX {
     drone.connect(master);
     const sweep = ctx.createOscillator();
     sweep.type = "sine";
-    sweep.frequency.value = 0.035; // very slow breath
+    sweep.frequency.value = 0.025; // very slow breath
     const sweepAmt = ctx.createGain();
-    sweepAmt.gain.value = 160; // shallow — a gentle drift, not a wah
+    sweepAmt.gain.value = 70; // tiny drift — felt, not heard as a wah
     sweep.connect(sweepAmt);
     sweepAmt.connect(lp.frequency);
     sweep.start();
 
-    // crystalline shimmer: a couple of soft high sines, slowly tremolo'd + kept
-    // low so it sparkles rather than hisses
+    // crystalline shimmer: soft high sines on the G-minor-pentatonic (G5, Bb5,
+    // D6) so they ring in tune with the pad + cubes, slowly tremolo'd + kept low
+    // so it sparkles rather than hisses
     const shim = ctx.createGain();
     shim.gain.value = 0;
     const shimLp = ctx.createBiquadFilter();
     shimLp.type = "lowpass";
-    shimLp.frequency.value = 3200;
-    [1318.5, 1979].forEach((f) => {
+    shimLp.frequency.value = 3000;
+    [783.99, 932.33, 1174.66].forEach((f) => {
       const o = ctx.createOscillator();
       o.type = "sine";
       o.frequency.value = f;
@@ -331,9 +343,9 @@ class SoundFX {
     shim.connect(master);
     const trem = ctx.createOscillator();
     trem.type = "sine";
-    trem.frequency.value = 0.09;
+    trem.frequency.value = 0.07;
     const tremAmt = ctx.createGain();
-    tremAmt.gain.value = 0.003; // small — sums onto the shimmer base set per section
+    tremAmt.gain.value = 0.0025; // small — sums onto the shimmer base set per section
     trem.connect(tremAmt);
     tremAmt.connect(shim.gain);
     trem.start();
@@ -360,8 +372,67 @@ class SoundFX {
     this.ambient.drone.gain.setTargetAtTime((lvl * (w0 * 0.7 + w1 * 1.0 + w2 * 0.85)) / norm, t, 0.9);
     this.ambient.shim.gain.setTargetAtTime((lvl * 0.25 * (w1 * 1.0 + w2 * 0.75)) / norm, t, 0.9);
     // gentle cutoff drift per section (the slow LFO breathes around this)
-    const cutoff = (w0 * 320 + w1 * 560 + w2 * 440) / norm;
+    const cutoff = (w0 * 420 + w1 * 640 + w2 * 520) / norm;
     this.ambient.lp.frequency.setTargetAtTime(cutoff, t, 0.9);
+  }
+
+  // --- motion: a soft airy "flight" whoosh while moving through the memory room.
+  // Looping filtered noise whose level + brightness track how fast the camera
+  // is travelling, so scrolling forward feels like gliding through the lattice
+  // and stopping settles to silence. Kept gentle — wind, not static. -----------
+  private motion: { master: GainNode; gain: GainNode; lp: BiquadFilterNode; bp: BiquadFilterNode } | null = null;
+
+  ensureMotion() {
+    if (this.motion || this.reduced) return;
+    this.init();
+    if (!this.ctx || !this.master || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const master = ctx.createGain();
+    master.gain.value = this.muted ? 0 : 1;
+    master.connect(this.master);
+
+    // ~2s of noise, looped — the source of the wind
+    const len = Math.floor(ctx.sampleRate * 2);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+
+    // shape it into soft air: a lowpass tames the hiss, a gentle bandpass gives
+    // it the breathy "rushing past" colour
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 300;
+    lp.Q.value = 0.3;
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 500;
+    bp.Q.value = 0.6;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+
+    src.connect(lp);
+    lp.connect(bp);
+    bp.connect(gain);
+    gain.connect(master);
+    src.start();
+
+    this.motion = { master, gain, lp, bp };
+  }
+
+  /** drive the flight whoosh from a normalised travel speed (0..1) */
+  setMotion(speed: number) {
+    if (!this.motion || !this.ctx) return;
+    const s = Math.max(0, Math.min(1, speed));
+    const t = this.ctx.currentTime;
+    // ease into a soft top — never harsh even at full tilt
+    const lvl = s * s * 0.05;
+    this.motion.gain.gain.setTargetAtTime(lvl, t, 0.12);
+    // open up the filters as you move faster, so fast travel is brighter/airier
+    this.motion.lp.frequency.setTargetAtTime(300 + s * 1100, t, 0.12);
+    this.motion.bp.frequency.setTargetAtTime(420 + s * 900, t, 0.12);
   }
 
   // --- spatial memory cubes: a small pool of HRTF-panned voices that attach to

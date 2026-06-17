@@ -950,6 +950,9 @@ export default function World() {
     let lastStepMs = 0;
     const sndFwd = new THREE.Vector3(); // listener forward (scratch)
     const sndUp = new THREE.Vector3(); // listener up (scratch)
+    const prevCamPos = new THREE.Vector3(); // last frame's camera position (flight-whoosh speed)
+    let prevCamInit = false;
+    let travelSpeed = 0; // smoothed normalised travel speed through the room
 
     const tick = () => {
       t += 0.016;
@@ -1292,6 +1295,30 @@ export default function World() {
           if (id) occ.push({ id, x: g.position.x, y: g.position.y, z: g.position.z });
         }
         sfx.updateSpatial({ x: camera.position.x, y: camera.position.y, z: camera.position.z }, occ);
+      }
+
+      // flight whoosh: a soft wind that tracks how fast the camera is actually
+      // travelling through the room, so scrolling forward feels like gliding and
+      // stopping settles to silence. Only audible once the room has revealed.
+      {
+        const inRoom = gridUniforms.uReveal.value > 0.2;
+        let inst = 0;
+        if (prevCamInit) {
+          // per-frame distance → normalised speed (the dive flies ~100 units of
+          // camera translateZ across the room, so even a small step is plenty)
+          inst = clamp01(camera.position.distanceTo(prevCamPos) / 2.2);
+        }
+        prevCamPos.copy(camera.position);
+        prevCamInit = true;
+        const target = inRoom ? inst : 0;
+        // ease up quickly, glide down slowly so the wind tapers off naturally
+        travelSpeed += (target - travelSpeed) * (target > travelSpeed ? 0.3 : 0.06);
+        if (inRoom) {
+          sfx.ensureMotion();
+          sfx.setMotion(travelSpeed);
+        } else if (travelSpeed > 0.001) {
+          sfx.setMotion(travelSpeed);
+        }
       }
       ambFrame++;
 
