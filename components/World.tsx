@@ -9,7 +9,8 @@ import { BokehPass } from "three/examples/jsm/postprocessing/BokehPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { SMAAPass } from "three/examples/jsm/postprocessing/SMAAPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
 import { palette } from "@/lib/theme";
@@ -640,8 +641,13 @@ export default function World() {
     let rArm: THREE.Object3D | null = null;
     let rForeArm: THREE.Object3D | null = null;
     let rHand: THREE.Object3D | null = null;
-    new FBXLoader().load("/models/Catwalk Walk Start Turn 180 Right.fbx", (fbx) => {
+    // figure.glb is the catwalk FBX re-exported as a meshopt-compressed glTF
+    // (~0.3 MB vs the original ~35 MB FBX) — same rig, bones and single clip
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+    gltfLoader.load("/models/figure.glb", (gltf) => {
       if (disposed) return;
+      const fbx = gltf.scene;
       // dark glossy iridescent skin on every mesh; keep the rig for animation
       fbx.traverse((o) => {
         const m = o as THREE.Mesh;
@@ -668,9 +674,9 @@ export default function World() {
 
       // load the catwalk walk-and-turn clip but PAUSE it — we scrub its time by
       // scroll instead of letting it auto-play (the body becomes a scroll puppet)
-      if (fbx.animations.length) {
+      if (gltf.animations.length) {
         mixer = new THREE.AnimationMixer(fbx);
-        action = mixer.clipAction(fbx.animations[0]);
+        action = mixer.clipAction(gltf.animations[0]);
         action.play();
         action.paused = true;
         clipDur = action.getClip().duration;
