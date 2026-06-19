@@ -1153,19 +1153,19 @@ export default function World() {
       // the dive IS the travel: scrolling flies the camera deep along its gaze,
       // through the static lattice + memory boxes. Stop scrolling → stop moving.
       // the dive now completes by p≈0.88; the finale (below) pulls back out.
-      const dive = smooth(0.72, 0.85, p);
+      const dive = smooth(0.70, 0.80, p);
       if (dive > 0.001) camera.translateZ(-dive * 100.0); // flight through the room
-      // between dive-end (0.85) and the finale (0.93) the camera HOLDS deep in the
-      // lattice while the project carousel sweeps past as a DOM overlay.
+      // 0.80→0.85 the camera holds in the room (explore + leave a memory), then it
+      // rises out into the teal dawn (0.85→0.91) where the project carousel floats.
       // FINALE pull-back: ease the camera straight back out along its gaze so the
       // lattice falls away behind us and the whole galaxy resolves into frame.
-      const pull = smooth(0.93, 1.0, p);
+      const pull = smooth(0.85, 0.91, p);
       if (pull > 0.001) camera.translateZ(pull * 145.0);
 
       // FINALE RISE: lift up out of the lattice into the open teal dawn. The cube
       // ceiling tops out at y≈42, so rise well above it and level the gaze toward
       // the horizon — the cyber city falls away below and the sky opens overhead.
-      const rise = smooth(0.93, 1.0, p);
+      const rise = smooth(0.85, 0.91, p);
       if (rise > 0.001) {
         const e = rise * rise * (3 - 2 * rise); // ease-in-out
         const fwd = new THREE.Vector3();
@@ -1176,7 +1176,7 @@ export default function World() {
         camera.lookAt(gazePt);
       }
       // the dawn dome fades in as the rise begins, and rides with the camera
-      skyUniforms.uFade.value = smooth(0.92, 1.0, p);
+      skyUniforms.uFade.value = smooth(0.845, 0.91, p);
       sky.position.copy(camera.position);
 
       // camera focus: capture the scroll-driven pose, then ease toward the
@@ -1200,7 +1200,7 @@ export default function World() {
       // then the dive carries us into it. In the finale the lattice STAYS lit so
       // the sign-off keeps the room-of-memories atmosphere: the camera pulls back
       // to face the front wall of cyan cubes, and the words type onto that wall.
-      const revealFinale = smooth(0.93, 1.0, p);
+      const revealFinale = smooth(0.965, 1.0, p);
       gridUniforms.uReveal.value = smooth(0.6, 0.8, p);
 
       // FINALE sign-off: the cyan wireframe wall holds; the signature + contact
@@ -1217,11 +1217,12 @@ export default function World() {
         sfx.play(roomActive ? "open" : "close"); // "sector change" cue as the room resolves
       }
 
-      // PROJECT CAROUSEL: while the camera holds (p 0.85→0.93), sweep the holo
-      // carousel of projects. Progress drives the ring rotation in the overlay's
-      // own rAF; the boolean only flips React state on the crossing.
-      carouselProgressRef.current = clamp01((p - 0.855) / (0.925 - 0.855));
-      const carOn = p > 0.85 && p < 0.93;
+      // PROJECT CAROUSEL: once the camera has risen into the teal dawn (p>0.90),
+      // the holo carousel of projects floats over the open sky. Progress drives
+      // the ring rotation in the overlay's own rAF; the boolean only flips React
+      // state on the crossing.
+      carouselProgressRef.current = clamp01((p - 0.905) / (0.96 - 0.905));
+      const carOn = p > 0.90 && p < 0.965;
       if (carOn !== carouselActiveRef.current) {
         carouselActiveRef.current = carOn;
         setCarouselActive(carOn);
@@ -1456,7 +1457,7 @@ export default function World() {
     <>
       {/* scroll runway — scrubs the figure's walk-and-turn clip; the stage below
           is fixed/pinned so the scene holds while the body animates with scroll */}
-      <div style={{ height: "820vh" }} aria-hidden />
+      <div style={{ height: "950vh" }} aria-hidden />
 
       {/* fixed cinematic stage — colour (iridescent figure reads in full colour) */}
       <div className="fixed inset-0 select-none overflow-hidden bg-bg">
