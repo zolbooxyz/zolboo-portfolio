@@ -54,8 +54,9 @@ const KEYS: Key[] = [
   { p: 0.0, r: 5.2, th: 0.0, ph: 1.18, fx: 0, ly: 0.2, lz: 0 }, // front, close — standing pose
   { p: 0.3, r: 5.8, th: 0.5, ph: 1.14, fx: 0, ly: 0.2, lz: 0 }, // ease around as it starts walking
   { p: 0.6, r: 6.0, th: 1.1, ph: 1.14, fx: 0, ly: 0.4, lz: 0 }, // walk + 180° completes here; swung to the side-back
-  { p: 0.72, r: 2.6, th: 0.62, ph: 1.45, fx: 0, ly: 1.4, lz: -2.0 }, // camera-only: settle behind the right ear, watch the point
-  { p: 1.0, r: 2.2, th: 0.5, ph: 1.48, fx: 0, ly: 1.45, lz: -4.5 }, // long, slow glide forward — the dive (below) eases into the moment
+  { p: 0.68, r: 2.8, th: 0.62, ph: 1.42, fx: 0, ly: 1.3, lz: -1.6 }, // settle to watch the point — the figure presents its work
+  { p: 0.80, r: 2.8, th: 0.62, ph: 1.42, fx: 0, ly: 1.3, lz: -1.6 }, // HOLD here while the project carousel plays (figure as presenter)
+  { p: 1.0, r: 2.2, th: 0.5, ph: 1.48, fx: 0, ly: 1.45, lz: -4.5 }, // glide forward — the dive into the memory room
 ];
 function sampleCam(p: number): { r: number; th: number; ph: number; fx: number; ly: number; lz: number } {
   if (p <= KEYS[0].p) return KEYS[0];
@@ -1029,7 +1030,7 @@ export default function World() {
         // FINALE: dissolve the figure out before the camera pulls back, so it
         // never floats in front of the galaxy (p holds last frame's value here —
         // a 1-frame lag is invisible). Its atoms "become" the galaxy.
-        const figFade = 1 - smooth(0.84, 0.93, p);
+        const figFade = 1 - smooth(0.80, 0.87, p);
         figure.visible = it > 0.02 && figFade > 0.02;
         const wantTrans = figFade < 1;
         if (wantTrans !== metalTrans) {
@@ -1099,7 +1100,7 @@ export default function World() {
         // the arm rises in lock-step with the camera move: it starts lifting the
         // moment the walk ends (~0.6, camera-only begins) and is fully pointing
         // by the time the camera settles behind the ear (~0.82)
-        const pointF = smooth(0.6, 0.72, p);
+        const pointF = smooth(0.6, 0.68, p);
         if (pointF > 0.001 && rArm) {
           const tw = (window as unknown as { __armPose?: { arm?: number[]; fore?: number[]; hand?: number[] } }).__armPose || {};
           const a = tw.arm || ARM_POINT.arm;
@@ -1123,7 +1124,7 @@ export default function World() {
       const sMat = stars.material as THREE.PointsMaterial;
       // fade the whole starfield out into the finale so no stray stars flicker
       // behind the sign-off — the void goes clean black for the signature
-      const starFade = 1 - smooth(0.86, 1.0, p);
+      const starFade = 1 - smooth(0.90, 0.97, p);
       sMat.opacity = Math.min(1, 0.65 + m.star * 0.9) * starFade; // bright cosmos → clean void
       sMat.size = 2.6 + m.star * 1.6; // pixel-sized stars (no attenuation) → a deep, even starfield
       stars.visible = starFade > 0.001;
@@ -1153,19 +1154,19 @@ export default function World() {
       // the dive IS the travel: scrolling flies the camera deep along its gaze,
       // through the static lattice + memory boxes. Stop scrolling → stop moving.
       // the dive now completes by p≈0.88; the finale (below) pulls back out.
-      const dive = smooth(0.70, 0.80, p);
+      const dive = smooth(0.81, 0.89, p);
       if (dive > 0.001) camera.translateZ(-dive * 100.0); // flight through the room
-      // 0.80→0.85 the camera holds in the room (explore + leave a memory), then it
-      // rises out into the teal dawn (0.85→0.91) where the project carousel floats.
+      // after the portfolio the cards seed the lattice; the camera dives into the
+      // memory room (0.81→0.89), holds to explore, then rises into the teal dawn.
       // FINALE pull-back: ease the camera straight back out along its gaze so the
       // lattice falls away behind us and the whole galaxy resolves into frame.
-      const pull = smooth(0.85, 0.91, p);
+      const pull = smooth(0.92, 0.97, p);
       if (pull > 0.001) camera.translateZ(pull * 145.0);
 
       // FINALE RISE: lift up out of the lattice into the open teal dawn. The cube
       // ceiling tops out at y≈42, so rise well above it and level the gaze toward
       // the horizon — the cyber city falls away below and the sky opens overhead.
-      const rise = smooth(0.85, 0.91, p);
+      const rise = smooth(0.92, 0.97, p);
       if (rise > 0.001) {
         const e = rise * rise * (3 - 2 * rise); // ease-in-out
         const fwd = new THREE.Vector3();
@@ -1176,7 +1177,7 @@ export default function World() {
         camera.lookAt(gazePt);
       }
       // the dawn dome fades in as the rise begins, and rides with the camera
-      skyUniforms.uFade.value = smooth(0.845, 0.91, p);
+      skyUniforms.uFade.value = smooth(0.915, 0.97, p);
       sky.position.copy(camera.position);
 
       // camera focus: capture the scroll-driven pose, then ease toward the
@@ -1201,28 +1202,28 @@ export default function World() {
       // the sign-off keeps the room-of-memories atmosphere: the camera pulls back
       // to face the front wall of cyan cubes, and the words type onto that wall.
       const revealFinale = smooth(0.965, 1.0, p);
-      gridUniforms.uReveal.value = smooth(0.6, 0.8, p);
+      gridUniforms.uReveal.value = smooth(0.79, 0.88, p);
 
       // FINALE sign-off: the cyan wireframe wall holds; the signature + contact
       // type themselves onto it via the DOM overlay (gated on finaleActive below).
 
       // surface the "leave a memory" trigger once the room has clearly resolved;
       // flip React state only on the crossing so we don't setState every frame
-      // only before the carousel takes over (p<0.85) — afterwards the journey
-      // moves on to the gallery + finale, so the CTA shouldn't flash back in
-      const roomActive = gridUniforms.uReveal.value > 0.5 && p < 0.85;
+      // the memory room comes after the portfolio: surface the CTA only while we
+      // are actually in the room (after the dive, before the rise)
+      const roomActive = gridUniforms.uReveal.value > 0.5 && p > 0.85 && p < 0.925;
       if (roomActive !== memoryRoomActiveRef.current) {
         memoryRoomActiveRef.current = roomActive;
         setMemoryRoomActive(roomActive);
         sfx.play(roomActive ? "open" : "close"); // "sector change" cue as the room resolves
       }
 
-      // PROJECT CAROUSEL: once the camera has risen into the teal dawn (p>0.90),
-      // the holo carousel of projects floats over the open sky. Progress drives
-      // the ring rotation in the overlay's own rAF; the boolean only flips React
-      // state on the crossing.
-      carouselProgressRef.current = clamp01((p - 0.905) / (0.96 - 0.905));
-      const carOn = p > 0.90 && p < 0.965;
+      // PROJECT CAROUSEL: right after the figure points (~0.68), it presents its
+      // work — the holo carousel plays while the camera holds on the figure.
+      // Progress drives the ring rotation in the overlay's own rAF; the boolean
+      // only flips React state on the crossing.
+      carouselProgressRef.current = clamp01((p - 0.675) / (0.795 - 0.675));
+      const carOn = p > 0.665 && p < 0.805;
       if (carOn !== carouselActiveRef.current) {
         carouselActiveRef.current = carOn;
         setCarouselActive(carOn);
@@ -1457,7 +1458,7 @@ export default function World() {
     <>
       {/* scroll runway — scrubs the figure's walk-and-turn clip; the stage below
           is fixed/pinned so the scene holds while the body animates with scroll */}
-      <div style={{ height: "950vh" }} aria-hidden />
+      <div style={{ height: "1150vh" }} aria-hidden />
 
       {/* fixed cinematic stage — colour (iridescent figure reads in full colour) */}
       <div className="fixed inset-0 select-none overflow-hidden bg-bg">
