@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { content } from "@/lib/content";
 import { useLang } from "@/lib/LanguageContext";
+import ProjectShot from "@/components/ProjectShot";
+import ProjectDetail, { type Project } from "@/components/ProjectDetail";
 
 const items = content.projects.items;
 const N = items.length;
@@ -25,6 +27,7 @@ export default function ProjectsCarousel({
   progressRef: MutableRefObject<number>;
 }) {
   const { t } = useLang();
+  const [openProject, setOpenProject] = useState<Project | null>(null);
   const ringRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
   const counterRef = useRef<HTMLSpanElement>(null);
@@ -88,7 +91,7 @@ export default function ProjectsCarousel({
 
       {/* 3D ring */}
       <div
-        className="relative h-[300px] w-[320px] sm:h-[340px] sm:w-[380px]"
+        className="relative h-[410px] w-[320px] sm:h-[430px] sm:w-[380px]"
         style={{ perspective: "1200px" }}
       >
         <div
@@ -108,47 +111,63 @@ export default function ProjectsCarousel({
                 transform: `rotateY(${i * STEP}deg) translateZ(var(--carousel-r, 380px))`,
               }}
             >
-              <div className="flex w-full flex-col rounded-xl border border-line bg-surface/70 p-5 backdrop-blur-sm transition-shadow group-data-[front=1]:border-accent/50 group-data-[front=1]:shadow-glow sm:p-6">
-                <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-accent/90">
-                  <span>{t(proj.category)}</span>
-                  <span className="text-muted/70">{proj.year}</span>
-                </div>
-                <div className="mt-3 font-display text-xl font-bold leading-tight text-ink sm:text-2xl">
-                  {t(proj.title)}
-                </div>
-                <div className="mt-1 h-px w-10 bg-gradient-to-r from-accent to-transparent" />
-                <p className="mt-3 font-mono text-[11px] leading-relaxed text-muted sm:text-xs">
-                  {t(proj.desc)}
-                </p>
-                {"clients" in proj && proj.clients ? (
-                  <div className="mb-2 font-mono text-[9px] uppercase tracking-[0.15em] text-accent/60">
-                    {proj.clients}
+              <button
+                type="button"
+                onClick={() => setOpenProject(proj)}
+                className="pointer-events-none flex w-full cursor-default flex-col overflow-hidden rounded-xl border border-line bg-surface/70 text-left backdrop-blur-sm transition-shadow group-data-[front=1]:pointer-events-auto group-data-[front=1]:cursor-pointer group-data-[front=1]:border-accent/50 group-data-[front=1]:shadow-glow"
+              >
+                {/* screenshot (or branded placeholder) */}
+                <ProjectShot
+                  id={proj.id}
+                  title={proj.title}
+                  category={proj.category}
+                  className="aspect-[16/9] w-full"
+                />
+                <div className="flex flex-col p-4 sm:p-5">
+                  <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-accent/90">
+                    <span>{t(proj.category)}</span>
+                    <span className="text-muted/70">{proj.year}</span>
                   </div>
-                ) : null}
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {proj.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted/80"
-                    >
-                      {tag}
+                  <div className="mt-2 font-display text-lg font-bold leading-tight text-ink sm:text-xl">
+                    {t(proj.title)}
+                  </div>
+                  <p className="mt-2 line-clamp-2 font-mono text-[11px] leading-relaxed text-muted">
+                    {t(proj.desc)}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="flex flex-wrap gap-1.5">
+                      {proj.tags.slice(0, 3).map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted/80"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                    <span className="flex items-center gap-1 whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.18em] text-accent/0 transition-colors group-data-[front=1]:text-accent/80">
+                      {t({ mn: "Үзэх", en: "View" })} →
                     </span>
-                  ))}
+                  </div>
                 </div>
-                <div className="pointer-events-none absolute right-4 top-4 font-mono text-[10px] tabular-nums text-ink/15">
-                  {String(i + 1).padStart(2, "0")}
-                </div>
-              </div>
+              </button>
             </div>
           ))}
         </div>
       </div>
 
-      {/* progress counter */}
-      <div className="absolute bottom-[14%] left-1/2 -translate-x-1/2 font-mono text-[11px] tracking-[0.3em] text-muted">
-        <span ref={counterRef} className="text-accent">01</span>
-        <span className="text-muted/40"> / {String(N).padStart(2, "0")}</span>
+      {/* progress counter + tap hint */}
+      <div className="absolute bottom-[11%] left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5">
+        <div className="font-mono text-[11px] tracking-[0.3em] text-muted">
+          <span ref={counterRef} className="text-accent">01</span>
+          <span className="text-muted/40"> / {String(N).padStart(2, "0")}</span>
+        </div>
+        <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted/50">
+          {t({ mn: "Дэлгэрэнгүй харах бол карт дээр дарна уу", en: "Tap a card for details" })}
+        </div>
       </div>
+
+      {openProject && <ProjectDetail project={openProject} onClose={() => setOpenProject(null)} />}
     </div>
   );
 }
