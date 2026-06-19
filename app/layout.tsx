@@ -18,14 +18,17 @@ const logo = Syne({
 // Onest drives everything else — headings + body (Latin + Cyrillic)
 const sans = Onest({
   subsets: ["latin", "cyrillic"],
-  weight: ["400", "500", "600", "700"],
+  // 800 included so `font-extrabold` headings render as true Onest ExtraBold
+  // instead of a browser-synthesised faux-bold (which mangles Cyrillic glyphs)
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-display",
   display: "swap",
 });
 
 const mono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["400", "500"],
+  // 600 included so `font-semibold` mono CTAs render true, not faux-bold
+  weight: ["400", "500", "600"],
   variable: "--font-mono",
   display: "swap",
 });

@@ -81,7 +81,7 @@ export default function ProjectsCarousel({
           <span className="h-1 w-1 animate-pulseGlow rounded-full bg-accent" />
           {t(content.projects.label)}
         </div>
-        <h2 className="mt-2 font-display text-2xl font-extrabold uppercase tracking-tight text-ink sm:text-4xl">
+        <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
           {t(content.projects.heading)}
         </h2>
       </div>
