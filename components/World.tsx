@@ -20,6 +20,7 @@ import { Mail, Phone, Facebook, Instagram } from "lucide-react";
 import Logo from "@/components/Logo";
 import MemoryForm from "@/components/MemoryForm";
 import MemoryCard from "@/components/MemoryCard";
+import ProjectsCarousel from "@/components/ProjectsCarousel";
 import SoundToggle from "@/components/SoundToggle";
 import HudOverlay from "@/components/HudOverlay";
 import ScrambleText from "@/components/ScrambleText";
@@ -183,6 +184,10 @@ export default function World() {
   // "leave a memory" trigger only surfaces where it makes sense
   const [memoryRoomActive, setMemoryRoomActive] = useState(false);
   const memoryRoomActiveRef = useRef(false); // throttle: only setState on crossings
+  // the project carousel beat — sits between the room and the finale
+  const [carouselActive, setCarouselActive] = useState(false);
+  const carouselActiveRef = useRef(false);
+  const carouselProgressRef = useRef(0); // 0→1 sweep, read by the carousel's own rAF
   // the closing "memory galaxy" beat — drives the contact finale overlay
   const [finaleActive, setFinaleActive] = useState(false);
   const finaleActiveRef = useRef(false);
@@ -1148,17 +1153,19 @@ export default function World() {
       // the dive IS the travel: scrolling flies the camera deep along its gaze,
       // through the static lattice + memory boxes. Stop scrolling → stop moving.
       // the dive now completes by p≈0.88; the finale (below) pulls back out.
-      const dive = smooth(0.72, 0.88, p);
+      const dive = smooth(0.72, 0.85, p);
       if (dive > 0.001) camera.translateZ(-dive * 100.0); // flight through the room
+      // between dive-end (0.85) and the finale (0.93) the camera HOLDS deep in the
+      // lattice while the project carousel sweeps past as a DOM overlay.
       // FINALE pull-back: ease the camera straight back out along its gaze so the
       // lattice falls away behind us and the whole galaxy resolves into frame.
-      const pull = smooth(0.88, 1.0, p);
+      const pull = smooth(0.93, 1.0, p);
       if (pull > 0.001) camera.translateZ(pull * 145.0);
 
       // FINALE RISE: lift up out of the lattice into the open teal dawn. The cube
       // ceiling tops out at y≈42, so rise well above it and level the gaze toward
       // the horizon — the cyber city falls away below and the sky opens overhead.
-      const rise = smooth(0.9, 1.0, p);
+      const rise = smooth(0.93, 1.0, p);
       if (rise > 0.001) {
         const e = rise * rise * (3 - 2 * rise); // ease-in-out
         const fwd = new THREE.Vector3();
@@ -1169,7 +1176,7 @@ export default function World() {
         camera.lookAt(gazePt);
       }
       // the dawn dome fades in as the rise begins, and rides with the camera
-      skyUniforms.uFade.value = smooth(0.885, 1.0, p);
+      skyUniforms.uFade.value = smooth(0.92, 1.0, p);
       sky.position.copy(camera.position);
 
       // camera focus: capture the scroll-driven pose, then ease toward the
@@ -1193,7 +1200,7 @@ export default function World() {
       // then the dive carries us into it. In the finale the lattice STAYS lit so
       // the sign-off keeps the room-of-memories atmosphere: the camera pulls back
       // to face the front wall of cyan cubes, and the words type onto that wall.
-      const revealFinale = smooth(0.86, 1.0, p);
+      const revealFinale = smooth(0.93, 1.0, p);
       gridUniforms.uReveal.value = smooth(0.6, 0.8, p);
 
       // FINALE sign-off: the cyan wireframe wall holds; the signature + contact
@@ -1201,11 +1208,24 @@ export default function World() {
 
       // surface the "leave a memory" trigger once the room has clearly resolved;
       // flip React state only on the crossing so we don't setState every frame
-      const roomActive = gridUniforms.uReveal.value > 0.5;
+      // only before the carousel takes over (p<0.85) — afterwards the journey
+      // moves on to the gallery + finale, so the CTA shouldn't flash back in
+      const roomActive = gridUniforms.uReveal.value > 0.5 && p < 0.85;
       if (roomActive !== memoryRoomActiveRef.current) {
         memoryRoomActiveRef.current = roomActive;
         setMemoryRoomActive(roomActive);
         sfx.play(roomActive ? "open" : "close"); // "sector change" cue as the room resolves
+      }
+
+      // PROJECT CAROUSEL: while the camera holds (p 0.85→0.93), sweep the holo
+      // carousel of projects. Progress drives the ring rotation in the overlay's
+      // own rAF; the boolean only flips React state on the crossing.
+      carouselProgressRef.current = clamp01((p - 0.855) / (0.925 - 0.855));
+      const carOn = p > 0.85 && p < 0.93;
+      if (carOn !== carouselActiveRef.current) {
+        carouselActiveRef.current = carOn;
+        setCarouselActive(carOn);
+        if (carOn) sfx.play("open"); // "sector change" cue as the gallery resolves
       }
 
       // surface the contact finale once the sign-off space has resolved
@@ -1436,7 +1456,7 @@ export default function World() {
     <>
       {/* scroll runway — scrubs the figure's walk-and-turn clip; the stage below
           is fixed/pinned so the scene holds while the body animates with scroll */}
-      <div style={{ height: "680vh" }} aria-hidden />
+      <div style={{ height: "820vh" }} aria-hidden />
 
       {/* fixed cinematic stage — colour (iridescent figure reads in full colour) */}
       <div className="fixed inset-0 select-none overflow-hidden bg-bg">
@@ -1625,9 +1645,9 @@ export default function World() {
             setFormOpen(true);
           }}
           onPointerEnter={() => sfx.play("hover")}
-          aria-hidden={!memoryRoomActive || finaleActive}
+          aria-hidden={!memoryRoomActive || finaleActive || carouselActive}
           className={`group absolute bottom-8 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-accent/60 bg-accent/15 px-7 py-3 font-mono text-[12px] font-semibold uppercase tracking-[0.24em] text-accent shadow-[0_0_30px_-6px_rgba(45,230,230,0.55)] backdrop-blur-md transition-all duration-700 ease-out hover:border-accent hover:bg-accent/25 hover:text-ink hover:shadow-[0_0_44px_-6px_rgba(45,230,230,0.8)] ${
-            memoryRoomActive && !finaleActive
+            memoryRoomActive && !finaleActive && !carouselActive
               ? "pointer-events-auto translate-y-0 opacity-100"
               : "pointer-events-none translate-y-3 opacity-0"
           }`}
@@ -1635,6 +1655,9 @@ export default function World() {
           <span className="h-1.5 w-1.5 animate-pulseGlow rounded-full bg-accent shadow-[0_0_10px_rgba(45,230,230,0.9)]" />
           <ScrambleText text={t(content.memories.cta)} active={memoryRoomActive} speed={22} />
         </button>
+
+        {/* PROJECT CAROUSEL: the holo gallery between the room and the finale */}
+        <ProjectsCarousel active={carouselActive} progressRef={carouselProgressRef} />
 
         {/* FINALE: the sign-off — the closing words type themselves onto the
             wireframe wall, terminal-style, and come to rest there */}
