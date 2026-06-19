@@ -114,7 +114,7 @@ export default function ProjectsCarousel({
               <button
                 type="button"
                 onClick={() => setOpenProject(proj)}
-                className="pointer-events-none flex w-full cursor-default flex-col overflow-hidden rounded-xl border border-line bg-surface/70 text-left backdrop-blur-sm transition-shadow group-data-[front=1]:pointer-events-auto group-data-[front=1]:cursor-pointer group-data-[front=1]:border-accent/50 group-data-[front=1]:shadow-glow"
+                className="pointer-events-none flex w-full cursor-default flex-col overflow-hidden rounded-xl border border-line bg-surface/90 text-left backdrop-blur-md transition-shadow group-data-[front=1]:pointer-events-auto group-data-[front=1]:cursor-pointer group-data-[front=1]:border-accent/50 group-data-[front=1]:shadow-glow"
               >
                 {/* screenshot (or branded placeholder) */}
                 <ProjectShot

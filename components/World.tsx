@@ -1027,10 +1027,10 @@ export default function World() {
 
         // figure fades + settles up into view on load
         const showE = smooth(0.05, 0.7, it);
-        // FINALE: dissolve the figure out before the camera pulls back, so it
-        // never floats in front of the galaxy (p holds last frame's value here —
-        // a 1-frame lag is invisible). Its atoms "become" the galaxy.
-        const figFade = 1 - smooth(0.80, 0.87, p);
+        // As the carousel arrives the figure dims to a faint presenter ghost (so
+        // the holo cards read in front of it instead of clashing with its bright
+        // chrome), then fully dissolves into the memory-room transition after.
+        const figFade = (1 - 0.82 * smooth(0.66, 0.74, p)) * (1 - smooth(0.80, 0.87, p));
         figure.visible = it > 0.02 && figFade > 0.02;
         const wantTrans = figFade < 1;
         if (wantTrans !== metalTrans) {
