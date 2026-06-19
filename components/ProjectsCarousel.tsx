@@ -22,15 +22,19 @@ const STEP = 360 / N; // degrees between adjacent cards on the ring
 export default function ProjectsCarousel({
   active,
   progressRef,
+  handRef,
 }: {
   active: boolean;
   progressRef: MutableRefObject<number>;
+  handRef: MutableRefObject<{ x: number; y: number }>;
 }) {
   const { t } = useLang();
   const [openProject, setOpenProject] = useState<Project | null>(null);
   const ringRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
   const counterRef = useRef<HTMLSpanElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null); // entrance wrapper — blooms out of the hand
+  const headRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
@@ -40,9 +44,24 @@ export default function ProjectsCarousel({
 
     const tick = () => {
       const p = Math.min(1, Math.max(0, progressRef.current));
-      // sweep through all N cards: card 0 at front when p=0, card N-1 at p=1
-      const ringAngle = -p * (N - 1) * STEP;
+      // first ~24% of the window = ENTRANCE: the ring blooms out of the figure's
+      // hand; the remaining 76% sweeps through the cards.
+      const e = Math.min(1, p / 0.24);
+      const ee = e * e * (3 - 2 * e); // ease-in-out
+      const rot = Math.max(0, (p - 0.24) / 0.76);
+      const ringAngle = -rot * (N - 1) * STEP;
       ring.style.transform = `rotateY(${ringAngle}deg)`;
+
+      // bloom the whole ring from the hand's screen point into centre
+      const wrap = wrapRef.current;
+      if (wrap) {
+        const inv = 1 - ee;
+        const dx = (handRef.current.x - 0.5) * window.innerWidth * inv;
+        const dy = (handRef.current.y - 0.5) * window.innerHeight * inv;
+        wrap.style.transform = `translate(${dx}px, ${dy}px) scale(${0.1 + 0.9 * ee})`;
+        wrap.style.opacity = String(Math.min(1, e * 1.5));
+      }
+      if (headRef.current) headRef.current.style.opacity = String(Math.max(0, (e - 0.4) / 0.6));
 
       let frontIdx = 0;
       let frontMax = -2;
@@ -70,7 +89,7 @@ export default function ProjectsCarousel({
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [active, progressRef]);
+  }, [active, progressRef, handRef]);
 
   return (
     <div
@@ -79,7 +98,7 @@ export default function ProjectsCarousel({
       aria-hidden={!active}
     >
       {/* section heading */}
-      <div className="absolute left-1/2 top-[12%] -translate-x-1/2 text-center">
+      <div ref={headRef} className="absolute left-1/2 top-[12%] -translate-x-1/2 text-center">
         <div className="flex items-center justify-center gap-2 font-mono text-[9px] uppercase tracking-[0.45em] text-accent/70 sm:text-[10px]">
           <span className="h-1 w-1 animate-pulseGlow rounded-full bg-accent" />
           {t(content.projects.label)}
@@ -89,7 +108,8 @@ export default function ProjectsCarousel({
         </h2>
       </div>
 
-      {/* 3D ring */}
+      {/* 3D ring — wrapped so it can bloom out of the figure's hand on entrance */}
+      <div ref={wrapRef} className="will-change-[transform,opacity]">
       <div
         className="relative h-[410px] w-[320px] sm:h-[430px] sm:w-[380px]"
         style={{ perspective: "1200px" }}
@@ -154,6 +174,7 @@ export default function ProjectsCarousel({
             </div>
           ))}
         </div>
+      </div>
       </div>
 
       {/* progress counter + tap hint */}

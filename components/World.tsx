@@ -189,6 +189,7 @@ export default function World() {
   const [carouselActive, setCarouselActive] = useState(false);
   const carouselActiveRef = useRef(false);
   const carouselProgressRef = useRef(0); // 0→1 sweep, read by the carousel's own rAF
+  const handScreenRef = useRef({ x: 0.5, y: 0.45 }); // figure's right-hand position projected to screen (0..1), so cards can bloom out of it
   // the closing "memory galaxy" beat — drives the contact finale overlay
   const [finaleActive, setFinaleActive] = useState(false);
   const finaleActiveRef = useRef(false);
@@ -1017,6 +1018,7 @@ export default function World() {
     const prevCamPos = new THREE.Vector3(); // last frame's camera position (flight-whoosh speed)
     let prevCamInit = false;
     let travelSpeed = 0; // smoothed normalised travel speed through the room
+    const handWorld = new THREE.Vector3(); // scratch for projecting the hand to screen
 
     const tick = () => {
       t += 0.016;
@@ -1224,6 +1226,13 @@ export default function World() {
       // only flips React state on the crossing.
       carouselProgressRef.current = clamp01((p - 0.675) / (0.795 - 0.675));
       const carOn = p > 0.665 && p < 0.805;
+      // project the figure's right hand to screen so the cards can bloom out of it
+      if (rHand && carOn) {
+        rHand.updateWorldMatrix(true, false);
+        rHand.getWorldPosition(handWorld).project(camera);
+        handScreenRef.current.x = handWorld.x * 0.5 + 0.5;
+        handScreenRef.current.y = -handWorld.y * 0.5 + 0.5;
+      }
       if (carOn !== carouselActiveRef.current) {
         carouselActiveRef.current = carOn;
         setCarouselActive(carOn);
@@ -1659,7 +1668,7 @@ export default function World() {
         </button>
 
         {/* PROJECT CAROUSEL: the holo gallery between the room and the finale */}
-        <ProjectsCarousel active={carouselActive} progressRef={carouselProgressRef} />
+        <ProjectsCarousel active={carouselActive} progressRef={carouselProgressRef} handRef={handScreenRef} />
 
         {/* FINALE: the sign-off — the closing words type themselves onto the
             wireframe wall, terminal-style, and come to rest there */}
