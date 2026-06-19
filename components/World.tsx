@@ -259,7 +259,10 @@ export default function World() {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 420); // far reaches the finale galaxy (~157 units out)
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // no MSAA: the composer renders to its own targets (the canvas backbuffer is
+    // just a fullscreen blit) so renderer-level antialias is wasted memory/bandwidth
+    // — edge AA is done by the SMAA pass below. high-performance picks the dGPU.
+    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: "high-performance" });
     // phones report DPR up to ~3; the bokeh+bloom chain is fill-rate heavy, so cap
     // tighter on narrow/touch screens to keep the scroll-scrub smooth
     const touch = window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 768;
