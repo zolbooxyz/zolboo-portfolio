@@ -483,6 +483,50 @@ export default function World() {
     cubeCentersRef.current = cubeCenters; // expose to React (random placement + label projection)
     scene.add(grid);
 
+    // --- FINALE SKY: a teal-dawn gradient dome. Invisible during the journey
+    // (uFade = 0); as the finale lifts the camera up out of the lattice, this
+    // fades in so the cyber city recedes below into an open teal horizon. The
+    // dome is recentred on the camera each frame, so it reads as the far sky.
+    const skyUniforms = {
+      uFade: { value: 0 },
+      uHorizon: { value: new THREE.Color(palette.accent2) }, // teal glow band at the horizon
+      uZenith: { value: new THREE.Color(0x061018) },         // deep dark overhead → text stays legible
+      uGround: { value: new THREE.Color(0x02050a) },         // near-black below the horizon
+    };
+    const sky = new THREE.Mesh(
+      new THREE.SphereGeometry(320, 32, 16),
+      new THREE.ShaderMaterial({
+        uniforms: skyUniforms,
+        side: THREE.BackSide,
+        depthWrite: false,
+        depthTest: false,
+        transparent: true,
+        vertexShader: /* glsl */ `
+          varying vec3 vDir;
+          void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform float uFade;
+          uniform vec3 uHorizon;
+          uniform vec3 uZenith;
+          uniform vec3 uGround;
+          varying vec3 vDir;
+          void main(){
+            float y = vDir.y;                 // -1 down · 0 horizon · +1 up
+            // a deep dark sky everywhere (so overlaid text stays legible),
+            // easing to near-black below the horizon
+            vec3 col = mix(uGround, uZenith, smoothstep(-0.22, 0.28, y));
+            // a single tight teal glow band hugging the horizon line
+            col += uHorizon * exp(-abs(y) * 9.0) * 0.6;
+            gl_FragColor = vec4(col, 1.0) * uFade;
+          }
+        `,
+      })
+    );
+    sky.renderOrder = -10; // draw behind everything (depthTest off)
+    sky.frustumCulled = false;
+    scene.add(sky);
+
     // OCCUPIED cells = "filled glass cubes": faint additive glowing faces + bright
     // edges so a memory-bearing cube stands out from the hollow lattice. Geometry
     // and materials are shared across all occupied cubes (cheap); a sync function
@@ -1110,6 +1154,23 @@ export default function World() {
       // lattice falls away behind us and the whole galaxy resolves into frame.
       const pull = smooth(0.88, 1.0, p);
       if (pull > 0.001) camera.translateZ(pull * 145.0);
+
+      // FINALE RISE: lift up out of the lattice into the open teal dawn. The cube
+      // ceiling tops out at y≈42, so rise well above it and level the gaze toward
+      // the horizon — the cyber city falls away below and the sky opens overhead.
+      const rise = smooth(0.9, 1.0, p);
+      if (rise > 0.001) {
+        const e = rise * rise * (3 - 2 * rise); // ease-in-out
+        const fwd = new THREE.Vector3();
+        camera.getWorldDirection(fwd);
+        const gazePt = camera.position.clone().addScaledVector(fwd, 130);
+        camera.position.y += e * 86; // clear the y=42 ceiling, climb into the sky
+        gazePt.y = THREE.MathUtils.lerp(gazePt.y, camera.position.y - 10, e); // ease to a near-level horizon gaze
+        camera.lookAt(gazePt);
+      }
+      // the dawn dome fades in as the rise begins, and rides with the camera
+      skyUniforms.uFade.value = smooth(0.885, 1.0, p);
+      sky.position.copy(camera.position);
 
       // camera focus: capture the scroll-driven pose, then ease toward the
       // clicked cube (position lerp + orientation slerp). On release it eases
