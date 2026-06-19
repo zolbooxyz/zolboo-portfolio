@@ -274,9 +274,14 @@ export default function World() {
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    // cinematic depth-of-field
-    const bokeh = new BokehPass(scene, camera, { focus: 8, aperture: 0.0009, maxblur: 0.008 });
-    composer.addPass(bokeh);
+    // cinematic depth-of-field — a full-res depth gather, the single heaviest
+    // pass in the chain. Skip it on phones (the blur barely reads on a small
+    // screen) so the scroll-scrub stays smooth on weaker mobile GPUs.
+    let bokeh: BokehPass | null = null;
+    if (!touch) {
+      bokeh = new BokehPass(scene, camera, { focus: 8, aperture: 0.0009, maxblur: 0.008 });
+      composer.addPass(bokeh);
+    }
     // very high threshold + low strength: only the hottest specular edges
     // bloom, so the body keeps its sculpted form instead of washing to white
     const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.26, 0.6, 0.86);
@@ -1235,9 +1240,12 @@ export default function World() {
         }
       }
 
-      // keep the figure in focus; everything else softly blurs
-      const focusDist = camera.position.distanceTo(tmp.set(0, c.ly, 0));
-      (bokeh.uniforms as Record<string, { value: number }>).focus.value = focusDist;
+      // keep the figure in focus; everything else softly blurs (no-op on phones
+      // where the bokeh pass is skipped)
+      if (bokeh) {
+        const focusDist = camera.position.distanceTo(tmp.set(0, c.ly, 0));
+        (bokeh.uniforms as Record<string, { value: number }>).focus.value = focusDist;
+      }
 
       // 3D-anchored text: each chapter block drifts with the camera azimuth +
       // pointer and scales with distance, so it reads as pinned beside the figure
