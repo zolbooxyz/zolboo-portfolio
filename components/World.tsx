@@ -1588,8 +1588,10 @@ export default function World() {
           </div>
 
           {/* press start (bottom-centre) — outer centres, inner is what the tick
-              drops away first as the walk begins */}
-          <div className="absolute bottom-9 left-1/2 -translate-x-1/2">
+              drops away first as the walk begins. Lifted above the HUD telemetry
+              on phones (left/right readouts sit at bottom-7) so the centred CTA
+              doesn't collide with them on a narrow screen. */}
+          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 sm:bottom-9">
             <div ref={hudStartRef} className="will-change-transform" style={{ opacity: 1 }}>
               <motion.div
                 initial={{ opacity: 0, y: 8 }}

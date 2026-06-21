@@ -98,21 +98,24 @@ export default function ProjectsCarousel({
       aria-hidden={!active}
     >
       {/* section heading */}
-      <div ref={headRef} className="absolute left-1/2 top-[12%] -translate-x-1/2 text-center">
+      <div ref={headRef} className="absolute left-1/2 top-[6%] -translate-x-1/2 text-center sm:top-[12%]">
         <div className="flex items-center justify-center gap-2 font-mono text-[9px] uppercase tracking-[0.45em] text-accent/70 sm:text-[10px]">
           <span className="h-1 w-1 animate-pulseGlow rounded-full bg-accent" />
           {t(content.projects.label)}
         </div>
-        <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
+        <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-ink sm:text-4xl">
           {t(content.projects.heading)}
         </h2>
       </div>
 
       {/* 3D ring — wrapped so it can bloom out of the figure's hand on entrance */}
       <div ref={wrapRef} className="will-change-[transform,opacity]">
+      {/* radius (--carousel-r) + perspective are tuned per-breakpoint so the
+          perspective-magnified FRONT card never overflows a phone screen:
+          mobile keeps a shallow ring + far perspective (≈1.25× blow-up on a
+          260px card → ~325px, fits 390px) while desktop stays roomy. */}
       <div
-        className="relative h-[410px] w-[320px] sm:h-[430px] sm:w-[380px]"
-        style={{ perspective: "1200px" }}
+        className="relative h-[360px] w-[240px] [--carousel-r:260px] [perspective:1400px] sm:h-[430px] sm:w-[380px] sm:[--carousel-r:380px] sm:[perspective:1200px]"
       >
         <div
           ref={ringRef}
