@@ -35,6 +35,7 @@ export default function ProjectsCarousel({
   const counterRef = useRef<HTMLSpanElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null); // entrance wrapper — blooms out of the hand
   const headRef = useRef<HTMLDivElement>(null);
+  const footRef = useRef<HTMLDivElement>(null); // counter + tap hint — fades with the heading
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
@@ -42,26 +43,39 @@ export default function ProjectsCarousel({
     const ring = ringRef.current;
     if (!ring) return;
 
+    const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
     const tick = () => {
-      const p = Math.min(1, Math.max(0, progressRef.current));
-      // first ~24% of the window = ENTRANCE: the ring blooms out of the figure's
-      // hand; the remaining 76% sweeps through the cards.
-      const e = Math.min(1, p / 0.24);
+      const p = clamp01(progressRef.current);
+      // Three beats woven into the journey:
+      //  ENTRANCE (0→0.20)  — the ring blooms out of the figure's pointing hand
+      //  SWEEP    (0.20→0.82) — the ring spins each project to the front in turn
+      //  EXIT     (0.82→1.0) — the whole gallery launches into the depth ahead,
+      //                         handing off into the memory-room dive that follows
+      const e = Math.min(1, p / 0.20);
       const ee = e * e * (3 - 2 * e); // ease-in-out
-      const rot = Math.max(0, (p - 0.24) / 0.76);
+      const rot = clamp01((p - 0.20) / 0.62);
       const ringAngle = -rot * (N - 1) * STEP;
+      // EXIT factor: the cards accelerate away (ease-in) so they appear pulled
+      // into the room we are about to dive through, dissolving as they recede.
+      const x = clamp01((p - 0.82) / 0.18);
+      const xe = x * x;
       ring.style.transform = `rotateY(${ringAngle}deg)`;
 
-      // bloom the whole ring from the hand's screen point into centre
+      // bloom the whole ring out of the hand (entrance), then recede it into the
+      // depth + drift toward the vanishing point (exit) — one continuous gesture
       const wrap = wrapRef.current;
       if (wrap) {
         const inv = 1 - ee;
         const dx = (handRef.current.x - 0.5) * window.innerWidth * inv;
         const dy = (handRef.current.y - 0.5) * window.innerHeight * inv;
-        wrap.style.transform = `translate(${dx}px, ${dy}px) scale(${0.1 + 0.9 * ee})`;
-        wrap.style.opacity = String(Math.min(1, e * 1.5));
+        const lift = -xe * window.innerHeight * 0.12; // drift up into the distance
+        const scale = (0.1 + 0.9 * ee) * (1 - 0.5 * xe); // bloom up, then shrink away
+        wrap.style.transform = `translate(${dx}px, ${dy + lift}px) scale(${scale})`;
+        wrap.style.opacity = String(Math.min(1, e * 1.5) * (1 - xe));
       }
-      if (headRef.current) headRef.current.style.opacity = String(Math.max(0, (e - 0.4) / 0.6));
+      const headO = Math.max(0, (e - 0.4) / 0.6) * (1 - x);
+      if (headRef.current) headRef.current.style.opacity = String(headO);
+      if (footRef.current) footRef.current.style.opacity = String(headO);
 
       let frontIdx = 0;
       let frontMax = -2;
@@ -181,7 +195,7 @@ export default function ProjectsCarousel({
       </div>
 
       {/* progress counter + tap hint */}
-      <div className="absolute bottom-[11%] left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5">
+      <div ref={footRef} className="absolute bottom-[11%] left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5">
         <div className="font-mono text-[11px] tracking-[0.3em] text-muted">
           <span ref={counterRef} className="text-accent">01</span>
           <span className="text-muted/40"> / {String(N).padStart(2, "0")}</span>

@@ -7,9 +7,10 @@ import { useEffect, useRef, useState } from "react";
 // clock). Purely decorative + non-interactive so it never blocks the scene.
 const CHAPTERS: [number, string][] = [
   [0.0, "INTRO"],
-  [0.18, "TRANSIT"],
-  [0.6, "MEMORY//ROOM"],
-  [0.9, "SIGN-OFF"],
+  [0.14, "TRANSIT"],
+  [0.5, "PORTFOLIO"],
+  [0.78, "MEMORY//ROOM"],
+  [0.94, "SIGN-OFF"],
 ];
 
 export default function HudOverlay() {

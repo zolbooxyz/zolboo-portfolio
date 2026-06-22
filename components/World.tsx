@@ -50,13 +50,21 @@ type Key = { p: number; r: number; th: number; ph: number; fx: number; ly: numbe
 // hero-only: one slow cinematic 3/4 orbit + gentle dolly that showcases the
 // figure's scroll-scrubbed walk-and-turn, then — once it finishes the 180° —
 // the camera settles directly behind the head, looking the same way it does.
+// The camera makes ONE long orbit of the figure (th sweeps 0 → 2π):
+//   hero front → walk/turn (the figure pivots 180° to face the room, -z) →
+//   a NEW APPROACH that arcs all the way around to the figure's FRONT so we
+//   meet its FACE → it presents the portfolio to us, face-to-face → the camera
+//   then keeps arcing around the presenter, its gaze flipping toward the room
+//   it built, and dives in. th is kept monotonic so the orbit never reverses.
 const KEYS: Key[] = [
-  { p: 0.0, r: 5.2, th: 0.0, ph: 1.18, fx: 0, ly: 0.2, lz: 0 }, // front, close — standing pose
-  { p: 0.3, r: 5.8, th: 0.5, ph: 1.14, fx: 0, ly: 0.2, lz: 0 }, // ease around as it starts walking
-  { p: 0.6, r: 6.0, th: 1.1, ph: 1.14, fx: 0, ly: 0.4, lz: 0 }, // walk + 180° completes here; swung to the side-back
-  { p: 0.68, r: 2.8, th: 0.62, ph: 1.42, fx: 0, ly: 1.3, lz: -1.6 }, // settle to watch the point — the figure presents its work
-  { p: 0.80, r: 2.8, th: 0.62, ph: 1.42, fx: 0, ly: 1.3, lz: -1.6 }, // HOLD here while the project carousel plays (figure as presenter)
-  { p: 1.0, r: 2.2, th: 0.5, ph: 1.48, fx: 0, ly: 1.45, lz: -4.5 }, // glide forward — the dive into the memory room
+  { p: 0.00, r: 5.2, th: 0.00, ph: 1.18, fx: 0, ly: 0.20, lz: 0 },   // hero — front, close, we see the face
+  { p: 0.20, r: 5.8, th: 0.55, ph: 1.14, fx: 0, ly: 0.25, lz: 0 },   // ease around as it starts walking
+  { p: 0.38, r: 5.6, th: 1.30, ph: 1.18, fx: 0, ly: 0.60, lz: 0 },   // walk + 180° completes; swung to the side-back
+  { p: 0.50, r: 3.2, th: 2.78, ph: 1.40, fx: 0, ly: 1.25, lz: 0.20 }, // APPROACH — arc around toward the figure's front
+  { p: 0.54, r: 2.9, th: 3.14, ph: 1.42, fx: 0, ly: 1.30, lz: 0.20 }, // settle in front of the FACE — presenter faces us
+  { p: 0.70, r: 2.9, th: 3.14, ph: 1.42, fx: 0, ly: 1.30, lz: 0.20 }, // HOLD — the portfolio is presented face-to-face
+  { p: 0.84, r: 2.4, th: 6.28, ph: 1.48, fx: 0, ly: 1.42, lz: -5.0 }, // arc on around the presenter; gaze flips toward the room
+  { p: 1.00, r: 2.1, th: 6.28, ph: 1.50, fx: 0, ly: 1.45, lz: -6.0 }, // dive line — straight on into the memory room (-z)
 ];
 function sampleCam(p: number): { r: number; th: number; ph: number; fx: number; ly: number; lz: number } {
   if (p <= KEYS[0].p) return KEYS[0];
@@ -79,8 +87,8 @@ function sampleCam(p: number): { r: number; th: number; ph: number; fx: number; 
 type Mood = { p: number; fog: number; star: number; grid: number; dust: number; bloom: number; vig: number; exp: number };
 const MOOD: Mood[] = [
   { p: 0.0, fog: 0.04, star: 0.42, grid: 0, dust: 0.5, bloom: 0.32, vig: 0.24, exp: 0.86 }, // hero — softer vignette so the starfield fills the frame
-  { p: 0.5, fog: 0.03, star: 0.6, grid: 0, dust: 0.45, bloom: 0.36, vig: 0.34, exp: 0.9 }, // opens slightly as it moves
-  { p: 0.86, fog: 0.036, star: 0.55, grid: 0, dust: 0.5, bloom: 0.34, vig: 0.38, exp: 0.88 }, // dive settle, just before the finale
+  { p: 0.42, fog: 0.03, star: 0.6, grid: 0, dust: 0.45, bloom: 0.36, vig: 0.34, exp: 0.9 }, // opens slightly as it moves
+  { p: 0.88, fog: 0.036, star: 0.55, grid: 0, dust: 0.5, bloom: 0.34, vig: 0.38, exp: 0.88 }, // dive settle, just before the finale
   { p: 1.0, fog: 0.02, star: 0.18, grid: 0, dust: 0.5, bloom: 0.34, vig: 0.3, exp: 0.96 }, // FINALE sign-off — clean dark void, dim the field stars so the signature reads
 ];
 function sampleMood(p: number): Omit<Mood, "p"> {
@@ -222,7 +230,10 @@ export default function World() {
 
   const handleMemorySubmit = async (fields: { nickname: string; phone: string; comment: string }) => {
     const total = cubeCentersRef.current.length;
-    const occupied = memoriesRef.current.map((x) => x.cube);
+    // fold every stored index into the corridor slot list (older memories were
+    // saved against the much larger old lattice) so "taken" lines up with where
+    // each memory actually renders now
+    const occupied = memoriesRef.current.map((x) => x.cube % total);
     const taken = new Set(occupied);
     // prefer a free cube that's currently visible on screen; fall back to any
     // visible cube, then to any free cube anywhere
@@ -383,7 +394,13 @@ export default function World() {
     rimLight.position.set(-6, 3, -4);
     const fillLight = new THREE.DirectionalLight(new THREE.Color(palette.ink), 0.22);
     fillLight.position.set(0, -4, 2);
-    scene.add(keyLight, rimLight, fillLight);
+    // FACE light — sits on the -z side (where the camera arcs round to for the
+    // portfolio). Off during the hero/walk (camera is +z); the tick ramps it up
+    // only as we come around to meet the figure's face, so the presenter reads
+    // instead of falling into a black silhouette. Aimed at the head height.
+    const faceLight = new THREE.DirectionalLight(0xcfe9ff, 0);
+    faceLight.position.set(0, 3.2, -7);
+    scene.add(keyLight, rimLight, fillLight, faceLight);
 
     // soft round sprite for the point clouds (stars + dust) — without it
     // PointsMaterial renders hard squares
@@ -433,12 +450,19 @@ export default function World() {
     const cubeCenters: THREE.Vector3[] = [];
     const SP = 14; // cube cell spacing (centre-to-centre)
     const HC = 4; // half cube edge (cube = 8, smaller cells with wider gaps)
-    const NX = 5; // cubes either side of centre in x → 11 columns (wide)
-    const NY = 3; // cubes either side of centre in y → 7 rows
+    const NX = 4; // cubes either side of centre in x → 9 columns (wide)
+    const NY = 2; // cubes either side of centre in y → 5 rows (trim the empty sky/floor)
     const LZ0 = 34; // near end (behind start)
-    const LZ1 = -185; // far end (deep ahead)
-    const addCube = (cx: number, cy: number, cz: number) => {
-      cubeCenters.push(new THREE.Vector3(cx, cy, cz));
+    const LZ1 = -120; // far end — trimmed to roughly where the dive actually reaches
+    // EVERY cell draws its wireframe (the endless-matrix vibe stays). But a memory
+    // may only be PLACED in a cell inside the flight CORRIDOR — a tight tube around
+    // the dive axis, at eye height, within the flown depth — so every memory is
+    // carried right past the camera and stays readable, instead of being stranded
+    // out in a cell the dive never approaches.
+    const inCorridor = (ix: number, iy: number, cz: number) =>
+      Math.abs(ix) <= 3 && Math.abs(iy) <= 1 && cz <= 8 && cz >= -92;
+    const addCube = (cx: number, cy: number, cz: number, corridor: boolean) => {
+      if (corridor) cubeCenters.push(new THREE.Vector3(cx, cy, cz));
       const x0 = cx - HC, x1 = cx + HC, y0 = cy - HC, y1 = cy + HC, z0 = cz - HC, z1 = cz + HC;
       // 12 edges of the cube as line-segment pairs
       latPts.push(
@@ -449,7 +473,7 @@ export default function World() {
     };
     for (let ix = -NX; ix <= NX; ix++)
       for (let iy = -NY; iy <= NY; iy++)
-        for (let cz = LZ0; cz >= LZ1; cz -= SP) addCube(ix * SP, iy * SP, cz);
+        for (let cz = LZ0; cz >= LZ1; cz -= SP) addCube(ix * SP, iy * SP, cz, inCorridor(ix, iy, cz));
     const latGeo = new THREE.BufferGeometry();
     latGeo.setAttribute("position", new THREE.Float32BufferAttribute(latPts, 3));
     const gridUniforms = {
@@ -478,7 +502,7 @@ export default function World() {
           // scroll stops instead of pulsing/drifting away)
           float fade = (1.0 - smoothstep(60.0, 175.0, d)) * smoothstep(3.0, 12.0, d);
           // colour shifts with depth: near = bright cyan, far = deep teal
-          float depthMix = smoothstep(-185.0, 34.0, vW.z);
+          float depthMix = smoothstep(-120.0, 34.0, vW.z);
           vec3 col = mix(uColB, uColA, depthMix);
           float a = fade * uReveal;
           gl_FragColor = vec4(col * a, a);
@@ -568,7 +592,7 @@ export default function World() {
       });
       for (const mm of mems) {
         if (occMeshes.has(mm.id)) continue;
-        const center = cubeCenters[mm.cube];
+        const center = cubeCenters[mm.cube % cubeCenters.length];
         if (!center) continue;
         const g = new THREE.Group();
         g.position.copy(center);
@@ -813,7 +837,7 @@ export default function World() {
     const scrollPos = new THREE.Vector3();
     const scrollQuat = new THREE.Quaternion();
     focusCubeRef.current = (cubeIdx) => {
-      const ctr = cubeCenters[cubeIdx];
+      const ctr = cubeCenters[cubeIdx % cubeCenters.length];
       if (!ctr) return;
       // settle just OUTSIDE the cube's back (-z) face, square and head-on, with
       // the cube centred on screen — close enough that the box fills the frame.
@@ -1032,7 +1056,9 @@ export default function World() {
         // As the carousel arrives the figure dims to a faint presenter ghost (so
         // the holo cards read in front of it instead of clashing with its bright
         // chrome), then fully dissolves into the memory-room transition after.
-        const figFade = (1 - 0.82 * smooth(0.66, 0.74, p)) * (1 - smooth(0.80, 0.87, p));
+        // dim only partway as the cards bloom (we still want to read the face of
+        // the presenter behind them), then fully dissolve into the room dive.
+        const figFade = (1 - 0.5 * smooth(0.50, 0.60, p)) * (1 - smooth(0.84, 0.93, p));
         figure.visible = it > 0.02 && figFade > 0.02;
         const wantTrans = figFade < 1;
         if (wantTrans !== metalTrans) {
@@ -1042,6 +1068,9 @@ export default function World() {
         }
         metalMat.opacity = figFade;
         glowUniforms.uFade.value = figFade;
+        // bring up the front/face light only while the camera is round at the
+        // figure's front for the portfolio, then let it dissolve with the dive
+        faceLight.intensity = smooth(0.42, 0.54, p) * (1 - smooth(0.82, 0.90, p)) * 1.15;
         const grow = 0.9 + 0.1 * showE;
 
         // the catwalk animation drives the body; here we only reveal it (grow +
@@ -1073,9 +1102,9 @@ export default function World() {
       // eased so it glides instead of snapping. lock the hips' XZ so the body
       // walks + turns in place rather than striding off-screen (root-motion strip)
       if (mixer && action && clipDur > 0) {
-        // the walk + 180° turn completes by p≈0.6, then holds — the rest of the
-        // scroll is camera-only (swing to the ear, point, dive into the moment)
-        const targetTime = clamp01(p / 0.6) * clipDur;
+        // the walk + 180° turn completes by p≈0.38, then holds — the rest of the
+        // scroll is camera-only (arc around to the face, present, dive into the room)
+        const targetTime = clamp01(p / 0.38) * clipDur;
         animTime += (targetTime - animTime) * 0.12;
         action.time = animTime;
         mixer.update(0);
@@ -1087,7 +1116,7 @@ export default function World() {
           const y = hipsBone.position.y;
           if (stepPrevY !== null) {
             const vy = y - stepPrevY;
-            const walking = p > 0.02 && p < 0.6 && Math.abs(vy) > 0.00005;
+            const walking = p > 0.02 && p < 0.38 && Math.abs(vy) > 0.00005;
             if (walking && stepPrevVy < 0 && vy >= 0 && performance.now() - lastStepMs > 160) {
               lastStepMs = performance.now();
               sfx.play("step");
@@ -1100,9 +1129,9 @@ export default function World() {
         // over the clip pose for the arm chain only (slerp by pointF). Read
         // live-tweak values from window.__armPose while dialling in the pose.
         // the arm rises in lock-step with the camera move: it starts lifting the
-        // moment the walk ends (~0.6, camera-only begins) and is fully pointing
-        // by the time the camera settles behind the ear (~0.82)
-        const pointF = smooth(0.6, 0.68, p);
+        // moment the walk ends (~0.38) and is fully pointing by the time the
+        // camera has arced around to meet the face (~0.54)
+        const pointF = smooth(0.42, 0.52, p);
         if (pointF > 0.001 && rArm) {
           const tw = (window as unknown as { __armPose?: { arm?: number[]; fore?: number[]; hand?: number[] } }).__armPose || {};
           const a = tw.arm || ARM_POINT.arm;
@@ -1126,7 +1155,7 @@ export default function World() {
       const sMat = stars.material as THREE.PointsMaterial;
       // fade the whole starfield out into the finale so no stray stars flicker
       // behind the sign-off — the void goes clean black for the signature
-      const starFade = 1 - smooth(0.90, 0.97, p);
+      const starFade = 1 - smooth(0.92, 0.98, p);
       sMat.opacity = Math.min(1, 0.65 + m.star * 0.9) * starFade; // bright cosmos → clean void
       sMat.size = 2.6 + m.star * 1.6; // pixel-sized stars (no attenuation) → a deep, even starfield
       stars.visible = starFade > 0.001;
@@ -1155,20 +1184,20 @@ export default function World() {
       camera.lookAt(frameX, c.ly, c.lz);
       // the dive IS the travel: scrolling flies the camera deep along its gaze,
       // through the static lattice + memory boxes. Stop scrolling → stop moving.
-      // the dive now completes by p≈0.88; the finale (below) pulls back out.
-      const dive = smooth(0.81, 0.89, p);
+      // the dive now completes by p≈0.93; the finale (below) pulls back out.
+      const dive = smooth(0.84, 0.93, p);
       if (dive > 0.001) camera.translateZ(-dive * 100.0); // flight through the room
       // after the portfolio the cards seed the lattice; the camera dives into the
       // memory room (0.81→0.89), holds to explore, then rises into the teal dawn.
       // FINALE pull-back: ease the camera straight back out along its gaze so the
       // lattice falls away behind us and the whole galaxy resolves into frame.
-      const pull = smooth(0.92, 0.97, p);
+      const pull = smooth(0.94, 0.985, p);
       if (pull > 0.001) camera.translateZ(pull * 145.0);
 
       // FINALE RISE: lift up out of the lattice into the open teal dawn. The cube
       // ceiling tops out at y≈42, so rise well above it and level the gaze toward
       // the horizon — the cyber city falls away below and the sky opens overhead.
-      const rise = smooth(0.92, 0.97, p);
+      const rise = smooth(0.94, 0.985, p);
       if (rise > 0.001) {
         const e = rise * rise * (3 - 2 * rise); // ease-in-out
         const fwd = new THREE.Vector3();
@@ -1179,7 +1208,7 @@ export default function World() {
         camera.lookAt(gazePt);
       }
       // the dawn dome fades in as the rise begins, and rides with the camera
-      skyUniforms.uFade.value = smooth(0.915, 0.97, p);
+      skyUniforms.uFade.value = smooth(0.935, 0.985, p);
       sky.position.copy(camera.position);
 
       // camera focus: capture the scroll-driven pose, then ease toward the
@@ -1203,8 +1232,11 @@ export default function World() {
       // then the dive carries us into it. In the finale the lattice STAYS lit so
       // the sign-off keeps the room-of-memories atmosphere: the camera pulls back
       // to face the front wall of cyan cubes, and the words type onto that wall.
-      const revealFinale = smooth(0.965, 1.0, p);
-      gridUniforms.uReveal.value = smooth(0.79, 0.88, p);
+      const revealFinale = smooth(0.97, 1.0, p);
+      // the lattice forms as the cards launch away + the camera arcs around into
+      // the room — so the gallery visibly dissolves INTO the memory room and the
+      // space is already there as the dive begins.
+      gridUniforms.uReveal.value = smooth(0.72, 0.88, p);
 
       // FINALE sign-off: the cyan wireframe wall holds; the signature + contact
       // type themselves onto it via the DOM overlay (gated on finaleActive below).
@@ -1213,7 +1245,7 @@ export default function World() {
       // flip React state only on the crossing so we don't setState every frame
       // the memory room comes after the portfolio: surface the CTA only while we
       // are actually in the room (after the dive, before the rise)
-      const roomActive = gridUniforms.uReveal.value > 0.5 && p > 0.85 && p < 0.925;
+      const roomActive = gridUniforms.uReveal.value > 0.5 && p > 0.86 && p < 0.95;
       if (roomActive !== memoryRoomActiveRef.current) {
         memoryRoomActiveRef.current = roomActive;
         setMemoryRoomActive(roomActive);
@@ -1224,8 +1256,8 @@ export default function World() {
       // work — the holo carousel plays while the camera holds on the figure.
       // Progress drives the ring rotation in the overlay's own rAF; the boolean
       // only flips React state on the crossing.
-      carouselProgressRef.current = clamp01((p - 0.675) / (0.795 - 0.675));
-      const carOn = p > 0.665 && p < 0.805;
+      carouselProgressRef.current = clamp01((p - 0.535) / (0.745 - 0.535));
+      const carOn = p > 0.525 && p < 0.76;
       // project the figure's right hand to screen so the cards can bloom out of it
       if (rHand && carOn) {
         rHand.updateWorldMatrix(true, false);
@@ -1284,15 +1316,15 @@ export default function World() {
           const mem = mems[i];
           const elx = labelEls.current.get(mem.id);
           if (!elx) continue;
-          const center = centers[mem.cube];
+          const center = centers[mem.cube % centers.length];
           if (!center) { elx.style.opacity = "0"; continue; }
           const dist = camera.position.distanceTo(center);
           labelV.copy(center).project(camera);
           const inFront = labelV.z < 1;
-          // nickname reveals only on PROXIMITY — it fades in as the camera flies
-          // near a cube (peak ~16-34 units) and fades out far + when too close,
-          // so the lattice stays clean and the glass cube is the at-a-glance cue
-          const prox = (1 - smooth(34, 60, dist)) * smooth(10, 16, dist);
+          // nickname reveals on PROXIMITY — fades in from further out now (~45u)
+          // and fades when too close, so several names down the corridor read at
+          // once (even when the scroll is stopped) instead of one at a time
+          const prox = (1 - smooth(45, 78, dist)) * smooth(8, 14, dist);
           const op = inFront ? reveal * prox : 0;
           if (op < 0.015) {
             elx.style.opacity = "0";
@@ -1315,7 +1347,7 @@ export default function World() {
       const ret = reticleRef.current;
       if (ret) {
         const hm = hoveredCubeId ? memoriesRef.current.find((m) => m.id === hoveredCubeId) : null;
-        const hc = hm ? centers[hm.cube] : null;
+        const hc = hm ? centers[hm.cube % centers.length] : null;
         if (hm && hc && reveal > 0.2) {
           labelV.copy(hc).project(camera);
           if (labelV.z < 1) {
@@ -1354,13 +1386,13 @@ export default function World() {
       // before the dive. Each row wipes + slides in from the right, staggered.
       const skWrap = hudSkillsRef.current;
       if (skWrap) {
-        const skOut = smooth(0.5, 0.6, p); // whole matrix retreats as the dive nears
-        skWrap.style.opacity = (smooth(0.15, 0.2, p) * (1 - skOut)).toFixed(3);
+        const skOut = smooth(0.40, 0.48, p); // whole matrix retreats as the approach begins
+        skWrap.style.opacity = (smooth(0.10, 0.16, p) * (1 - skOut)).toFixed(3);
         const rows = hudSkillRowsRef.current?.children;
         if (rows) {
           for (let i = 0; i < rows.length; i++) {
             const r = rows[i] as HTMLElement;
-            const rin = ease(clamp01((p - (0.2 + i * 0.045)) / 0.06)); // staggered scrub-in
+            const rin = ease(clamp01((p - (0.13 + i * 0.038)) / 0.05)); // staggered scrub-in
             const vis = rin * (1 - skOut);
             const x = (1 - rin) * 46 + skOut * 64; // slide in, then retreat as the dive nears
             r.style.opacity = vis.toFixed(3);
@@ -1467,7 +1499,7 @@ export default function World() {
     <>
       {/* scroll runway — scrubs the figure's walk-and-turn clip; the stage below
           is fixed/pinned so the scene holds while the body animates with scroll */}
-      <div style={{ height: "1150vh" }} aria-hidden />
+      <div style={{ height: "1350vh" }} aria-hidden />
 
       {/* fixed cinematic stage — colour (iridescent figure reads in full colour) */}
       <div className="fixed inset-0 select-none overflow-hidden bg-bg">
@@ -1707,8 +1739,9 @@ export default function World() {
 // you move through the experience, with ticks at the real beats. Click to jump.
 const RAIL_BEATS = [
   { p: 0.0, label: "INTRO" },
-  { p: 0.62, label: "MEMORIES" },
-  { p: 0.92, label: "SIGN-OFF" },
+  { p: 0.58, label: "WORK" },
+  { p: 0.80, label: "MEMORIES" },
+  { p: 0.94, label: "SIGN-OFF" },
 ];
 
 function ScrollRail() {
