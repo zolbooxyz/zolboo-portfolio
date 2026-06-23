@@ -48,13 +48,23 @@ export default function ProjectsCarousel({
       const p = clamp01(progressRef.current);
       // Three beats woven into the journey:
       //  ENTRANCE (0→0.20)  — the ring blooms out of the figure's pointing hand
-      //  SWEEP    (0.20→0.82) — the ring spins each project to the front in turn
+      //  SWEEP    (0.20→0.76) — each project rotates to the front and DWELLS there
       //  EXIT     (0.82→1.0) — the whole gallery launches into the depth ahead,
       //                         handing off into the memory-room dive that follows
       const e = Math.min(1, p / 0.20);
       const ee = e * e * (3 - 2 * e); // ease-in-out
-      const rot = clamp01((p - 0.20) / 0.62);
-      const ringAngle = -rot * (N - 1) * STEP;
+      // STEPPED sweep: instead of gliding past all six at one constant speed (a
+      // fast scroll blows through them in an instant), each card rotates to the
+      // front then HOLDS for a beat before the next — the ring "clicks" project
+      // to project so every one gets a readable moment.
+      const sweep = clamp01((p - 0.20) / 0.56);
+      const u = sweep * (N - 1);                  // 0..N-1 — which card is at front
+      const i = Math.min(N - 2, Math.floor(u));
+      const f = u - i;                            // 0..1 progress within this card's slice
+      const hold = 0.58;                          // most of each slice holds the card still
+      const tt = f <= hold ? 0 : (f - hold) / (1 - hold);
+      const te = tt * tt * (3 - 2 * tt);          // then ease the rotation to the next
+      const ringAngle = -(i + te) * STEP;
       // EXIT factor: the cards accelerate away (ease-in) so they appear pulled
       // into the room we are about to dive through, dissolving as they recede.
       const x = clamp01((p - 0.82) / 0.18);
@@ -150,8 +160,10 @@ export default function ProjectsCarousel({
             >
               <button
                 type="button"
-                onClick={() => setOpenProject(proj)}
-                className="pointer-events-none flex w-full cursor-default flex-col overflow-hidden rounded-xl border border-line bg-surface/90 text-left backdrop-blur-md transition-shadow group-data-[front=1]:pointer-events-auto group-data-[front=1]:cursor-pointer group-data-[front=1]:border-accent/50 group-data-[front=1]:shadow-glow"
+                onClick={() => active && setOpenProject(proj)}
+                className={`pointer-events-none flex w-full cursor-default flex-col overflow-hidden rounded-xl border border-line bg-surface/90 text-left backdrop-blur-md transition-shadow group-data-[front=1]:border-accent/50 group-data-[front=1]:shadow-glow ${
+                  active ? "group-data-[front=1]:pointer-events-auto group-data-[front=1]:cursor-pointer" : ""
+                }`}
               >
                 {/* screenshot (or branded placeholder) */}
                 <ProjectShot

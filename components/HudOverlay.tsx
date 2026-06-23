@@ -58,8 +58,14 @@ export default function HudOverlay() {
   let chapter = CHAPTERS[0][1];
   for (const [p, label] of CHAPTERS) if (pct >= p) chapter = label;
 
+  // dim the FUI chrome (frame + telemetry) through the memory room so it doesn't
+  // compete with / bury the floating cubes, then restore it for the finale
+  const band = (x: number, a: number, b: number, c: number, d: number) =>
+    x <= a || x >= d ? 0 : x < b ? (x - a) / (b - a) : x > c ? 1 - (x - c) / (d - c) : 1;
+  const chromeDim = 1 - 0.78 * band(pct, 0.78, 0.84, 0.93, 0.98);
+
   return (
-    <div className="pointer-events-none absolute inset-0 z-[14]">
+    <div className="pointer-events-none absolute inset-0 z-[14] transition-none" style={{ opacity: chromeDim }}>
       {/* scanlines */}
       <div className="hud-scanlines absolute inset-0 opacity-60" />
 

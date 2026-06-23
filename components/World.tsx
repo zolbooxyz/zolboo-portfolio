@@ -204,6 +204,7 @@ export default function World() {
   const memoriesRef = useRef<Memory[]>([]); // live copy the WebGL tick can read
   const cubeCentersRef = useRef<THREE.Vector3[]>([]); // lattice cube world centres
   const labelEls = useRef<Map<string, HTMLButtonElement>>(new Map()); // nickname label DOM
+  const topBarRef = useRef<HTMLDivElement>(null); // logo + toggles; dimmed in the memory room so it stops burying corner cubes
   const reticleRef = useRef<HTMLDivElement>(null); // FUI targeting reticle on the hovered cube
   const reticleLabelRef = useRef<HTMLDivElement>(null); // its coordinate/ID readout
   // returns the cube indices currently ON SCREEN (centred, in front, near) so a
@@ -1092,7 +1093,14 @@ export default function World() {
         // advance toward the scroll target at a CAPPED, uniform pace: no matter how
         // fast the user flings the scroll, the scene only ever glides forward at
         // this max speed (it eases as it nears the target so it still settles).
-        p += Math.max(-0.0065, Math.min(0.0065, (target - p) * 0.18));
+        // Through the PORTFOLIO the cap is tightened hard so a fast fling can't
+        // blow past the six projects. The camera is parked (holding on the figure)
+        // across this stretch anyway, so slowing the scrub only paces the stepped
+        // carousel — each project is held at the front ~0.3s before the next.
+        // Eased at the edges so entering/leaving the slow zone isn't a jolt.
+        const slow = smooth(0.53, 0.57, p) * (1 - smooth(0.70, 0.74, p));
+        const cap = lerp(0.0065, 0.0010, slow);
+        p += Math.max(-cap, Math.min(cap, (target - p) * 0.18));
       }
 
       // scrub the walk-and-turn clip by scroll: clip time = scroll position, eased
@@ -1167,8 +1175,13 @@ export default function World() {
       // inertia on the pointer so parallax glides instead of snapping
       sm.x += (mouse.x - sm.x) * 0.05;
       sm.y += (mouse.y - sm.y) * 0.05;
-      const px = sm.x * 0.4;
-      const py = -sm.y * 0.3;
+      // fade the mouse-look parallax OUT in the memory room: there the cubes are
+      // click targets, and a camera that drifts with the cursor turns every cube
+      // into a moving target you can't aim at. Hold it steady so cubes + their
+      // labels stay put under the pointer.
+      const parallax = 1 - smooth(0.74, 0.82, p);
+      const px = sm.x * 0.4 * parallax;
+      const py = -sm.y * 0.3 * parallax;
       // figure sits to the right while the greeting holds the left column, then
       // glides to centre stage as the greeting fades and the walk begins
       const heroOut = clamp01(p / 0.16);
@@ -1381,6 +1394,9 @@ export default function World() {
       setOverlay(hudStartRef.current, clamp01(1 - smooth(0.0, 0.06, p)), 0, 28);
       setOverlay(hudBracketsRef.current, clamp01(1 - smooth(0.0, 0.1, p)), 0, 0);
       setOverlay(hudPanelRef.current, clamp01(1 - smooth(0.04, 0.17, p)), -60, 0);
+      // dim the logo/toggles bar through the memory room so it stops burying the
+      // corner cubes behind it, then bring it back for the finale sign-off
+      if (topBarRef.current) topBarRef.current.style.opacity = (1 - 0.85 * band(p, 0.78, 0.84, 0.93, 0.98)).toFixed(3);
 
       // SKILL MATRIX (right) — builds row-by-row in sync with the walk, then clears
       // before the dive. Each row wipes + slides in from the right, staggered.
@@ -1520,7 +1536,7 @@ export default function World() {
         />
 
         {/* top bar */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-6 py-5 sm:px-10">
+        <div ref={topBarRef} className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-6 py-5 sm:px-10 will-change-[opacity]">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             aria-label="zolboo.xyz — back to top"
