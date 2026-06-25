@@ -2,11 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-/**
- * Blended custom cursor (desktop / fine-pointer only). Both the dot and the
- * ring track the pointer 1:1 (no trailing/inertia); the ring just expands over
- * interactive elements (links, buttons, or anything marked [data-cursor]).
- */
+// custom cursor (fine-pointer only). dot + ring track the pointer 1:1; the ring
+// expands over interactive elements.
 export default function Cursor() {
   const dot = useRef<HTMLDivElement>(null);
   const ring = useRef<HTMLDivElement>(null);
@@ -20,7 +17,7 @@ export default function Cursor() {
     document.documentElement.classList.add("custom-cursor");
 
     const onMove = (e: PointerEvent) => {
-      // both elements snap to the pointer the same frame — no lerp, no float
+      // snap to the pointer, no lerp
       if (dot.current) {
         dot.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
       }

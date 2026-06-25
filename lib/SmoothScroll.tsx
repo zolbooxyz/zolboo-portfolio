@@ -9,18 +9,15 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
-/**
- * Wraps the app in a Lenis smooth-scroll instance and keeps GSAP ScrollTrigger
- * in sync with it. Disabled entirely when the user prefers reduced motion.
- */
+// Lenis smooth scroll, kept in sync with GSAP ScrollTrigger. off when the user
+// prefers reduced motion.
 export default function SmoothScroll({ children }: { children: ReactNode }) {
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) return;
 
-    // lerp mode (not duration/easing): the scroll continuously chases the
-    // target every frame, so a fast flick keeps gliding with natural inertia
-    // instead of completing its fixed-duration ease and snapping to a stop.
+    // lerp mode: the scroll chases the target every frame, so a fast flick
+    // keeps gliding with inertia instead of snapping to a stop.
     const lenis = new Lenis({
       lerp: 0.08,
       smoothWheel: true,

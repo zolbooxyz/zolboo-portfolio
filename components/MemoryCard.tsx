@@ -17,7 +17,7 @@ export default function MemoryCard({ memory, onClose }: { memory: Memory; onClos
   const m = content.memories;
   const date = new Date(memory.createdAt).toLocaleDateString();
 
-  // close on Escape — expected for any modal/dialog
+  // close on Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -58,7 +58,7 @@ export default function MemoryCard({ memory, onClose }: { memory: Memory; onClos
         >
           ✕
         </button>
-        {/* wireframe-matching bracket chrome + nickname — content cascades in */}
+        {/* nickname + message, staggered in */}
         <motion.div
           initial="hidden"
           animate="visible"

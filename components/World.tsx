@@ -143,8 +143,8 @@ export default function World() {
   const { t } = useLang();
 
   const mountRef = useRef<HTMLDivElement>(null);
-  // hero "character select" HUD (DOM overlay) — the WebGL tick drives a staggered,
-  // directional exit (synced to the scroll-scrubbed walk) on these sub-groups
+  // hero "character select" HUD (DOM overlay). the tick drives a staggered exit
+  // on these sub-groups, synced to the scroll-scrubbed walk.
   const heroRef = useRef<HTMLDivElement>(null);
   const hudBracketsRef = useRef<HTMLDivElement>(null);
   const hudPanelRef = useRef<HTMLDivElement>(null);
@@ -310,9 +310,9 @@ export default function World() {
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    // cinematic depth-of-field — a full-res depth gather, the single heaviest
-    // pass in the chain. Skip it on phones (the blur barely reads on a small
-    // screen) so the scroll-scrub stays smooth on weaker mobile GPUs.
+    // depth-of-field — a full-res depth gather, the heaviest pass in the chain.
+    // skip it on phones (the blur barely shows on a small screen) for smoother
+    // scrolling on weaker GPUs.
     let bokeh: BokehPass | null = null;
     if (!touch) {
       bokeh = new BokehPass(scene, camera, { focus: 8, aperture: 0.0009, maxblur: 0.008 });
@@ -370,9 +370,8 @@ export default function World() {
     });
     composer.addPass(lensPass);
 
-    // image-based lighting: a custom studio cube of coloured emissive panels
-    // (white key + cyan / magenta rims) baked into an env map, so the chrome
-    // body reflects dramatic on-brand light instead of flat grey.
+    // image-based lighting: a cube of emissive panels (white key + cyan/magenta
+    // rims) baked into an env map so the chrome body reflects coloured light.
     const pmrem = new THREE.PMREMGenerator(renderer);
     const envScene = new THREE.Scene();
     envScene.background = new THREE.Color(0x04060a);
@@ -389,7 +388,7 @@ export default function World() {
     };
     // one defined key + dark surroundings → the chrome body gets real tonal
     // falloff (bright side → shadow side) instead of washing out flat
-    addPanel(0xffffff, 3.6, [-7, 8, 7], 10, 12); // key — strong, dramatic highlight
+    addPanel(0xffffff, 3.6, [-7, 8, 7], 10, 12); // key light
     addPanel(0xc4d2e0, 0.85, [11, 3, -5], 8, 18); // soft rim, right-back
     addPanel(0x8aa0b4, 0.18, [4, -2, 9], 7, 12); // dim front fill (darker → deeper shadow side)
     addPanel(0x0a141f, 0.4, [0, -9, 3], 18, 18); // dim floor bounce
@@ -434,7 +433,7 @@ export default function World() {
     const dotTex = new THREE.CanvasTexture(dotCanvas);
     dotTex.colorSpace = THREE.SRGBColorSpace;
 
-    // starfield — a deep, dense cosmos the figure walks through
+    // starfield
     const starN = 7200;
     const starPos = new Float32Array(starN * 3);
     for (let i = 0; i < starN; i++) {
@@ -454,16 +453,10 @@ export default function World() {
     scene.add(stars);
 
 
-    // --- "I'm having a moment": the trippy plunge from Project Hail Mary.
-
-    // --- ROOM OF MEMORIES: the dive emerges into a cyan wireframe cyberspace.
-    // A cyan grid lattice fills the void; terminal UI resolves over it. ---
-
-    // infinite 3D LATTICE made of DISCRETE WIREFRAME CUBES — a volumetric matrix
-    // of individual cyan cube cells (small gaps between them) receding in every
-    // direction, so flying through reads as endless digital space. Each cube is
-    // an addressable cell: content gets placed INSIDE select cubes later (their
-    // world centres are stashed on grid.userData.cubeCenters).
+    // ROOM OF MEMORIES: the dive emerges into a cyan wireframe grid.
+    // A 3D lattice of discrete wireframe cube cells receding in every direction.
+    // memories are placed inside select cells later (centres on
+    // grid.userData.cubeCenters).
     const latPts: number[] = [];
     const cubeCenters: THREE.Vector3[] = [];
     const SP = 14; // cube cell spacing (centre-to-centre)
@@ -532,10 +525,9 @@ export default function World() {
     cubeCentersRef.current = cubeCenters; // expose to React (random placement + label projection)
     scene.add(grid);
 
-    // --- FINALE SKY: a teal-dawn gradient dome. Invisible during the journey
-    // (uFade = 0); as the finale lifts the camera up out of the lattice, this
-    // fades in so the cyber city recedes below into an open teal horizon. The
-    // dome is recentred on the camera each frame, so it reads as the far sky.
+    // finale sky: a teal gradient dome, hidden during the journey (uFade = 0).
+    // it fades in as the finale rises out of the lattice, and is recentred on
+    // the camera each frame so it stays the far sky.
     const skyUniforms = {
       uFade: { value: 0 },
       uHorizon: { value: new THREE.Color(palette.accent2) }, // teal glow band at the horizon
@@ -1058,11 +1050,8 @@ export default function World() {
 
         // figure fades + settles up into view on load
         const showE = smooth(0.05, 0.7, it);
-        // As the carousel arrives the figure dims to a faint presenter ghost (so
-        // the holo cards read in front of it instead of clashing with its bright
-        // chrome), then fully dissolves into the memory-room transition after.
-        // dim only partway as the cards bloom (we still want to read the face of
-        // the presenter behind them), then fully dissolve into the room dive.
+        // dim the figure partway as the carousel arrives (so the cards read in
+        // front of it), then fully fade it out into the room dive.
         const figFade = (1 - 0.5 * smooth(0.50, 0.60, p)) * (1 - smooth(0.84, 0.93, p));
         figure.visible = it > 0.02 && figFade > 0.02;
         const wantTrans = figFade < 1;
@@ -1083,8 +1072,8 @@ export default function World() {
         figure.scale.setScalar(grow);
         figure.position.set(0, (1 - showE) * -0.4, 0);
       }
-      glowUniforms.uTime.value = t; // drive the sentient rim-glow pulse
-      if (bodyTime) bodyTime.value = t; // flow the liquid-metal surface ripple
+      glowUniforms.uTime.value = t; // rim-glow pulse
+      if (bodyTime) bodyTime.value = t; // body surface ripple
       stars.rotation.y += 0.0003;
 
       // scroll progress (eased)
@@ -1164,14 +1153,14 @@ export default function World() {
         }
       }
 
-      // evolving environment: one continuous mood that breathes with the journey
+      // interpolate the environment values for this scroll position
       const m = sampleMood(p);
       const sMat = stars.material as THREE.PointsMaterial;
-      // fade the whole starfield out into the finale so no stray stars flicker
-      // behind the sign-off — the void goes clean black for the signature
+      // fade the starfield out into the finale so no stray stars flicker behind
+      // the sign-off
       const starFade = 1 - smooth(0.92, 0.98, p);
-      sMat.opacity = Math.min(1, 0.65 + m.star * 0.9) * starFade; // bright cosmos → clean void
-      sMat.size = 2.6 + m.star * 1.6; // pixel-sized stars (no attenuation) → a deep, even starfield
+      sMat.opacity = Math.min(1, 0.65 + m.star * 0.9) * starFade;
+      sMat.size = 2.6 + m.star * 1.6; // pixel-sized (no attenuation)
       stars.visible = starFade > 0.001;
       bloom.strength = m.bloom;
       lensPass.uniforms.uVignette.value = m.vig;
@@ -1201,29 +1190,24 @@ export default function World() {
         c.r * Math.sin(c.ph) * Math.cos(c.th)
       );
       camera.lookAt(frameX, c.ly, c.lz);
-      // the dive IS the travel: scrolling flies the camera deep along its gaze,
-      // through the static lattice + memory boxes. Stop scrolling → stop moving.
-      // the dive now completes by p≈0.93; the finale (below) pulls back out.
+      // dive: scrolling flies the camera forward along its gaze through the
+      // lattice (completes by p≈0.93). stop scrolling -> stop moving.
       const dive = smooth(0.84, 0.93, p);
-      if (dive > 0.001) camera.translateZ(-dive * 100.0); // flight through the room
-      // after the portfolio the cards seed the lattice; the camera dives into the
-      // memory room (0.81→0.89), holds to explore, then rises into the teal dawn.
-      // FINALE pull-back: ease the camera straight back out along its gaze so the
-      // lattice falls away behind us and the whole galaxy resolves into frame.
+      if (dive > 0.001) camera.translateZ(-dive * 100.0);
+      // finale pull-back: ease the camera back out so the lattice falls away
       const pull = smooth(0.94, 0.985, p);
       if (pull > 0.001) camera.translateZ(pull * 145.0);
 
-      // FINALE RISE: lift up out of the lattice into the open teal dawn. The cube
-      // ceiling tops out at y≈42, so rise well above it and level the gaze toward
-      // the horizon — the cyber city falls away below and the sky opens overhead.
+      // finale rise: lift up out of the lattice into the open sky. the cube
+      // ceiling tops out at y≈42, so rise above it and level the gaze.
       const rise = smooth(0.94, 0.985, p);
       if (rise > 0.001) {
         const e = rise * rise * (3 - 2 * rise); // ease-in-out
         const fwd = new THREE.Vector3();
         camera.getWorldDirection(fwd);
         const gazePt = camera.position.clone().addScaledVector(fwd, 130);
-        camera.position.y += e * 86; // clear the y=42 ceiling, climb into the sky
-        gazePt.y = THREE.MathUtils.lerp(gazePt.y, camera.position.y - 10, e); // ease to a near-level horizon gaze
+        camera.position.y += e * 86; // clear the y=42 ceiling
+        gazePt.y = THREE.MathUtils.lerp(gazePt.y, camera.position.y - 10, e); // level out the gaze
         camera.lookAt(gazePt);
       }
       // the dawn dome fades in as the rise begins, and rides with the camera
@@ -1523,7 +1507,7 @@ export default function World() {
           is fixed/pinned so the scene holds while the body animates with scroll */}
       <div style={{ height: "1350vh" }} aria-hidden />
 
-      {/* fixed cinematic stage — colour (iridescent figure reads in full colour) */}
+      {/* fixed stage */}
       <div className="fixed inset-0 select-none overflow-hidden bg-bg">
         <div ref={mountRef} className="absolute inset-0 h-full w-full" />
 
@@ -1928,7 +1912,7 @@ function FinaleWall({ active }: { active: boolean }) {
           WebkitMaskImage: "radial-gradient(78% 78% at 50% 50%, #000 44%, transparent 80%)",
         }}
       />
-      {/* brighter wireframe corner brackets — lock the wall panel into the lattice */}
+      {/* corner brackets framing the wall panel */}
       <span className="pointer-events-none absolute -left-3 -top-3 h-7 w-7 border-l-2 border-t-2 border-accent/60" />
       <span className="pointer-events-none absolute -right-3 -top-3 h-7 w-7 border-r-2 border-t-2 border-accent/60" />
       <span className="pointer-events-none absolute -bottom-3 -left-3 h-7 w-7 border-b-2 border-l-2 border-accent/60" />
@@ -2112,7 +2096,7 @@ function FinaleLineView({
   );
 }
 
-// Mobile / no-WebGL view: a clean, premium single-column portfolio that mirrors
+// Mobile / no-WebGL view: a single-column portfolio that mirrors
 // the desktop content without the heavy 3D scroll experience.
 function WorldFallback() {
   const { t } = useLang();

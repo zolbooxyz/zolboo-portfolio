@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Persistent FUI chrome over the whole stage: scanlines, a thin targeting frame
-// with corner brackets, and live telemetry readouts (scroll %, chapter, FPS,
-// clock). Purely decorative + non-interactive so it never blocks the scene.
+// HUD overlay across the stage: scanlines, a thin frame with corner brackets,
+// and telemetry readouts (scroll %, chapter, FPS, clock). non-interactive.
 // thresholds aligned to the real scene beats: carousel goes active ~p0.53,
 // the memory room resolves ~p0.86, the finale ~p0.94
 const CHAPTERS: [number, string][] = [
@@ -60,8 +59,8 @@ export default function HudOverlay() {
   let chapter = CHAPTERS[0][1];
   for (const [p, label] of CHAPTERS) if (pct >= p) chapter = label;
 
-  // dim the FUI chrome (frame + telemetry) through the memory room so it doesn't
-  // compete with / bury the floating cubes, then restore it for the finale
+  // dim the HUD through the memory room so it doesn't bury the cubes, then
+  // restore it for the finale
   const band = (x: number, a: number, b: number, c: number, d: number) =>
     x <= a || x >= d ? 0 : x < b ? (x - a) / (b - a) : x > c ? 1 - (x - c) / (d - c) : 1;
   const chromeDim = 1 - 0.78 * band(pct, 0.78, 0.84, 0.93, 0.98);

@@ -46,7 +46,7 @@ class SoundFX {
         this.ctx = new AC();
         this.master = this.ctx.createGain();
         this.master.gain.value = 0.55; // brings up the interaction/motion sounds
-        // gentle lowpass on the bus rounds off harsh highs for a softer character
+        // lowpass on the bus to round off harsh highs
         const softLp = this.ctx.createBiquadFilter();
         softLp.type = "lowpass";
         softLp.frequency.value = 4200;
@@ -156,9 +156,8 @@ class SoundFX {
     src.stop(now + dur + 0.03);
   }
 
-  // FM bell — a sine carrier modulated by a sine at `ratio`, with the modulation
-  // index decaying so it opens bright then mellows. Glassy/metallic but soft:
-  // the sci-fi "interface" timbre. `glideTo` optionally pitches the carrier.
+  // FM bell: sine carrier modulated by a sine at `ratio`, mod index decaying so
+  // it opens bright then mellows. `glideTo` optionally pitches the carrier.
   private fm(
     carrier: number,
     ratio: number,
@@ -260,11 +259,8 @@ class SoundFX {
     }
   }
 
-  // --- ambient: a warm, calm pad — a deep sub, an all-SINE drone voicing a soft
-  // consonant G-minor chord (so it sits in tune with the spatial memory cubes,
-  // which sing a G pentatonic), and a faint, sparse crystalline shimmer on the
-  // same scale. Sines + a low-Q, barely-moving filter keep it round and
-  // non-fatiguing — no edgy triangle harmonics, no resonant "wah". -------------
+  // ambient bed: a sub, a sine drone voicing a G-minor chord (in tune with the
+  // memory cubes, which use a G pentatonic), and a sparse high shimmer.
   private ambient:
     | { master: GainNode; sub: GainNode; drone: GainNode; shim: GainNode; lp: BiquadFilterNode }
     | null = null;
@@ -290,10 +286,8 @@ class SoundFX {
     sub.connect(master);
     subOsc.start();
 
-    // warm drone: a soft G-minor pad (G2, D3 fifth, G3, + a quiet Bb3 for colour)
-    // voiced on PURE SINES so there are no harsh overtones. A pair are detuned a
-    // few cents so the chord breathes slowly instead of sitting dead still. A
-    // very gentle, almost-still low-Q lowpass rounds the top — no audible sweep.
+    // drone: G-minor pad (G2, D3, G3, + a quiet Bb3) on sines. a pair are detuned
+    // a few cents so the chord moves slightly. a low-Q lowpass rounds the top.
     const lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
     lp.Q.value = 0.5;
@@ -326,9 +320,8 @@ class SoundFX {
     sweepAmt.connect(lp.frequency);
     sweep.start();
 
-    // crystalline shimmer: soft high sines on the G-minor-pentatonic (G5, Bb5,
-    // D6) so they ring in tune with the pad + cubes, slowly tremolo'd + kept low
-    // so it sparkles rather than hisses
+    // shimmer: high sines on the G-minor pentatonic (G5, Bb5, D6), in tune with
+    // the pad + cubes, tremolo'd and kept low
     const shim = ctx.createGain();
     shim.gain.value = 0;
     const shimLp = ctx.createBiquadFilter();
@@ -373,15 +366,13 @@ class SoundFX {
     this.ambient.sub.gain.setTargetAtTime(lvl * 0.5, t, 1.0);
     this.ambient.drone.gain.setTargetAtTime((lvl * (w0 * 0.7 + w1 * 1.0 + w2 * 0.85)) / norm, t, 0.9);
     this.ambient.shim.gain.setTargetAtTime((lvl * 0.25 * (w1 * 1.0 + w2 * 0.75)) / norm, t, 0.9);
-    // gentle cutoff drift per section (the slow LFO breathes around this)
+    // cutoff drift per section (the slow LFO moves around this)
     const cutoff = (w0 * 420 + w1 * 640 + w2 * 520) / norm;
     this.ambient.lp.frequency.setTargetAtTime(cutoff, t, 0.9);
   }
 
-  // --- motion: a soft airy "flight" whoosh while moving through the memory room.
-  // Looping filtered noise whose level + brightness track how fast the camera
-  // is travelling, so scrolling forward feels like gliding through the lattice
-  // and stopping settles to silence. Kept gentle — wind, not static. -----------
+  // motion: a flight whoosh while moving through the room. looping filtered
+  // noise whose level + brightness track the camera's travel speed.
   private motion: { master: GainNode; gain: GainNode; lp: BiquadFilterNode; bp: BiquadFilterNode } | null = null;
 
   ensureMotion() {
@@ -402,8 +393,7 @@ class SoundFX {
     src.buffer = buf;
     src.loop = true;
 
-    // shape it into soft air: a lowpass tames the hiss, a gentle bandpass gives
-    // it the breathy "rushing past" colour
+    // lowpass tames the hiss, bandpass gives it the "rushing past" colour
     const lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
     lp.frequency.value = 300;
@@ -437,9 +427,8 @@ class SoundFX {
     this.motion.bp.frequency.setTargetAtTime(420 + s * 900, t, 0.12);
   }
 
-  // --- spatial memory cubes: a small pool of HRTF-panned voices that attach to
-  // the nearest occupied cubes, so flying through the lattice pans the glowing
-  // nodes around the listener (camera) in 3D ----------------------------------
+  // spatial memory cubes: a small pool of HRTF-panned voices attached to the
+  // nearest occupied cubes, so flying through pans the nodes in 3D.
   private spatial: { master: GainNode; voices: { panner: PannerNode; gain: GainNode; osc: OscillatorNode; id: string | null }[] } | null = null;
 
   ensureSpatial() {

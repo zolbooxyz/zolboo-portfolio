@@ -82,7 +82,7 @@ export default function MemoryForm({ open, onClose, onSubmit }: Props) {
         className="absolute inset-0 bg-bg/40"
       />
 
-      {/* premium glass card — a bottom sheet that slides up from the very bottom */}
+      {/* glass card — a bottom sheet that slides up */}
       <motion.form
         onSubmit={submit}
         initial={{ y: "100%" }}

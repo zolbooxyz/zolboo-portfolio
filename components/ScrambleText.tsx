@@ -4,10 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&*<>/\\[]{}=+";
 
-// Decodes its text left-to-right: unresolved characters flicker through random
-// glyphs, then lock into the final letter — a classic HUD "decrypt" reveal.
-// Writes straight to the DOM node (no per-frame React state) so dozens can run
-// at once without flooding React with re-renders.
+// decode-reveal: characters flicker through random glyphs left-to-right, then
+// lock in. writes straight to the DOM (no React state) so many can run at once.
 export default function ScrambleText({
   text,
   className = "",
@@ -85,7 +83,7 @@ export default function ScrambleText({
     return () => cancelAnimationFrame(raf);
   }, [go, text, speed, onReveal]);
 
-  // render the final text on mount (SSR-friendly); the effect takes over client-side
+  // render final text on mount (SSR-friendly); the effect takes over client-side
   return (
     <span ref={ref} className={className}>
       {text}
