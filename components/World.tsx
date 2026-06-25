@@ -802,7 +802,9 @@ export default function World() {
       stageH = h;
       renderer.setSize(w, h);
       composer.setSize(w, h);
-      bloom.setSize(w, h);
+      // bloom is a blur anyway — run it at half resolution to save fill-rate
+      // (no visible difference, lighter on the GPU)
+      bloom.setSize(Math.max(1, Math.round(w / 2)), Math.max(1, Math.round(h / 2)));
       smaa.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
@@ -1083,19 +1085,13 @@ export default function World() {
       if (pDebug != null) {
         p = pDebug;
       } else {
-        // advance toward the scroll target at a CAPPED, uniform pace: no matter how
-        // fast the user flings the scroll, the scene only ever glides forward at
-        // this max speed (it eases as it nears the target so it still settles).
-        // Through the PORTFOLIO the cap is tightened hard so a fast fling can't
-        // blow past the six projects. The camera is parked (holding on the figure)
-        // across this stretch anyway, so slowing the scrub only paces the stepped
-        // carousel — each project is held at the front ~0.3s before the next.
-        // Eased at the edges so entering/leaving the slow zone isn't a jolt.
-        // Base cap kept gentle so even a violent fling still glides through each
-        // chapter at a readable pace instead of teleporting past the content.
-        const slow = smooth(0.53, 0.57, p) * (1 - smooth(0.70, 0.74, p));
-        const cap = lerp(0.0038, 0.0010, slow);
-        p += Math.max(-cap, Math.min(cap, (target - p) * 0.16));
+        // follow the (Lenis-smoothed) scroll position directly: the scene tracks
+        // the scroll 1:1 and settles the moment you stop, so it never feels frozen
+        // then auto-drifts to catch up. the cap is high enough that normal
+        // scrolling never reaches it — it only softens an extreme fling so the
+        // scene glides instead of teleporting.
+        const cap = 0.022;
+        p += Math.max(-cap, Math.min(cap, (target - p) * 0.2));
       }
 
       // scrub the walk-and-turn clip by scroll: clip time = scroll position, eased
