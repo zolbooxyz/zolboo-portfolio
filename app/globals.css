@@ -189,6 +189,44 @@ html.custom-cursor * {
   .draw-check { stroke-dashoffset: 0; animation: none !important; }
 }
 
+/* Loader atmosphere — a slow-twinkling starfield + a gentle upward drift, so
+   the entry veil breathes the same cosmos the 3D scene opens into */
+@keyframes loaderTwinkle {
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: var(--peak, 0.85); }
+}
+@keyframes loaderDrift {
+  from { transform: translateY(6px); }
+  to { transform: translateY(-6px); }
+}
+.loader-star { animation: loaderTwinkle var(--tw, 3s) ease-in-out infinite; }
+.loader-drift { animation: loaderDrift var(--dr, 14s) ease-in-out infinite alternate; }
+
+/* Loader wireframe cube — tilts so the top face reads, then tumbles endlessly
+   like a lattice cell; each face fades in staggered so the cube "draws" itself */
+@keyframes loaderCubeSpin {
+  from { transform: rotateX(-22deg) rotateY(0deg); }
+  to   { transform: rotateX(-22deg) rotateY(360deg); }
+}
+@keyframes loaderCubeFace {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.loader-cube-spin {
+  transform-style: preserve-3d;
+  animation: loaderCubeSpin 9s linear infinite;
+}
+.loader-cube-face {
+  opacity: 0;
+  animation: loaderCubeFace 0.5s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-star, .loader-drift { animation: none !important; }
+  .loader-cube-spin { animation: none !important; transform: rotateX(-22deg) rotateY(-32deg); }
+  .loader-cube-face { animation: none !important; opacity: 1; }
+}
+
 /* Neon text accent */
 .text-glow {
   text-shadow: 0 0 24px rgba(45, 230, 230, 0.55);
