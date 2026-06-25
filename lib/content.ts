@@ -273,10 +273,10 @@ export const content = {
     phone: "8869 0420",
     phoneRaw: "+97688690420",
     location: { mn: "Улаанбаатар, Монгол", en: "Ulaanbaatar, Mongolia" },
-    // TODO: replace with the real profile URLs
     social: {
-      facebook: "https://facebook.com/",
-      instagram: "https://instagram.com/",
+      facebook: "https://www.facebook.com/zolbooundrakhbold",
+      instagram: "https://www.instagram.com/zolbooxyz",
+      github: "https://github.com/zolbooxyz",
     },
   },
 

@@ -1,7 +1,5 @@
-/**
- * Shared design tokens for non-CSS contexts (WebGL / canvas) where Tailwind
- * classes can't reach. Keep these in sync with tailwind.config.ts colors.
- */
+// colors for WebGL/canvas where Tailwind can't reach. keep in sync with
+// tailwind.config.ts.
 export const palette = {
   bg: "#07090D",
   accent: "#2DE6E6",

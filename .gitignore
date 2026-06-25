@@ -10,3 +10,8 @@ next-env.d.ts
 
 # TS incremental build cache
 *.tsbuildinfo
+
+# local working / editor files
+/.claude
+CLAUDE.md
+TEXTS.md

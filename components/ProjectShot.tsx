@@ -5,12 +5,8 @@ import { useLang } from "@/lib/LanguageContext";
 
 type LangText = { mn: string; en: string } | string;
 
-/**
- * A project screenshot with a graceful fallback. Drop a file at
- * `public/projects/<id>.jpg` and it appears automatically; until then (or if it
- * fails to load) a branded placeholder — gradient + grid + the project initial —
- * is shown instead, so there are never broken images.
- */
+// Project screenshot with a fallback. Drop public/projects/<id>.jpg and it shows
+// up; otherwise a placeholder (gradient + grid + initial) renders instead.
 export default function ProjectShot({
   id,
   title,

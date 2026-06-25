@@ -1,8 +1,5 @@
-/**
- * The unified brand mark — the "zolboo.xyz" signature wordmark used everywhere
- * (nav, loader, finale). Italic display type with the cyan ".xyz" accent.
- * Size is set by the caller via `className` (e.g. "text-xl", "text-7xl").
- */
+// brand wordmark used across the site (nav, loader, finale). size comes from the
+// caller's className.
 export default function Logo({
   className = "",
   glow = false,

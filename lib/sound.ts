@@ -18,14 +18,16 @@ export type SfxName =
 class SoundFX {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
-  muted = false;
+  muted = true; // default OFF — sound is opt-in via the toggle, never auto-plays
   private reduced = false;
   private wired = false;
 
   /** read the persisted preference (call once on the client) */
   loadPref() {
     try {
-      this.muted = localStorage.getItem("sfx-muted") === "1";
+      // only a stored choice overrides the default-off; first-time visitors stay muted
+      const v = localStorage.getItem("sfx-muted");
+      if (v !== null) this.muted = v === "1";
     } catch {
       /* ignore */
     }

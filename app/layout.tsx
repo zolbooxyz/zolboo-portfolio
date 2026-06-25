@@ -99,6 +99,12 @@ const jsonLd = {
   jobTitle: "Web Developer & Automation Specialist",
   description: DESCRIPTION,
   email: "mailto:zolbooq@gmail.com",
+  // linked profiles so Google can connect the site to the real person
+  sameAs: [
+    "https://www.facebook.com/zolbooundrakhbold",
+    "https://www.instagram.com/zolbooxyz",
+    "https://github.com/zolbooxyz",
+  ],
   address: {
     "@type": "PostalAddress",
     addressLocality: "Ulaanbaatar",
