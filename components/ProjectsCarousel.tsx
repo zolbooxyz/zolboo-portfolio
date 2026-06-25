@@ -10,15 +10,9 @@ const items = content.projects.items;
 const N = items.length;
 const STEP = 360 / N; // degrees between adjacent cards on the ring
 
-/**
- * Holo carousel — the project cards orbit a central spindle in CSS 3D space.
- * Scroll (via `progressRef`, 0→1) spins the ring so each project sweeps to the
- * front in turn; the front card is lit + enlarged while the rest recede.
- *
- * Rotation + per-card focus run on the component's own rAF (only while active),
- * reading the shared progress ref — so World's render loop never triggers a
- * React re-render for this.
- */
+// Project cards on a CSS-3D ring. progressRef (0..1) spins it so each card comes
+// to the front in turn. Runs on its own rAF while active, reading the shared ref,
+// so World's render loop never re-renders this.
 export default function ProjectsCarousel({
   active,
   progressRef,
@@ -214,6 +208,9 @@ export default function ProjectsCarousel({
         </div>
         <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted/50">
           {t({ mn: "Дэлгэрэнгүй харах бол карт дээр дарна уу", en: "Tap a card for details" })}
+        </div>
+        <div className="hidden font-mono text-[9px] uppercase tracking-[0.25em] text-muted/40 sm:block">
+          {t({ mn: "← → товчоор төслүүдийг сэлгэнэ", en: "Use ← → to browse projects" })}
         </div>
       </div>
 

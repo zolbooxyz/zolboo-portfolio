@@ -16,7 +16,7 @@ import { useLang } from "@/lib/LanguageContext";
 import { palette } from "@/lib/theme";
 import { fetchMemories, addMemory, pickFreeCube, type Memory } from "@/lib/memories";
 import { motion } from "framer-motion";
-import { Mail, Phone, Facebook, Instagram } from "lucide-react";
+import { Mail, Phone, Facebook, Instagram, Github } from "lucide-react";
 import Logo from "@/components/Logo";
 import MemoryForm from "@/components/MemoryForm";
 import MemoryCard from "@/components/MemoryCard";
@@ -37,34 +37,21 @@ function band(p: number, a: number, b: number, c: number, d: number) {
   return 1;
 }
 
-// camera keyframes along the scroll timeline (spherical: radius/theta/phi).
-// fx = lookAt x-offset → shifts the figure off-centre so the chapter text gets
-// the opposite column (alternating left/right gives the page its rhythm)
-// ly = lookAt height (rises to head level for the closing shot)
-// lz = lookAt depth → at the end the gaze pushes FORWARD past the head, in the
-//      same direction the figure faces, so camera + model share one POV and the
-//      space ahead is where the next section will open
+// camera keyframes along the scroll timeline (spherical r/theta/phi).
+// fx = lookAt x-offset, ly = lookAt height, lz = lookAt depth.
 type Key = { p: number; r: number; th: number; ph: number; fx: number; ly: number; lz: number };
-// Each chapter gets a HOLD plateau (a pair of near-identical keys) so the
-// camera parks on the beat for a stretch of scroll before moving on.
-// hero-only: one slow cinematic 3/4 orbit + gentle dolly that showcases the
-// figure's scroll-scrubbed walk-and-turn, then — once it finishes the 180° —
-// the camera settles directly behind the head, looking the same way it does.
-// The camera makes ONE long orbit of the figure (th sweeps 0 → 2π):
-//   hero front → walk/turn (the figure pivots 180° to face the room, -z) →
-//   a NEW APPROACH that arcs all the way around to the figure's FRONT so we
-//   meet its FACE → it presents the portfolio to us, face-to-face → the camera
-//   then keeps arcing around the presenter, its gaze flipping toward the room
-//   it built, and dives in. th is kept monotonic so the orbit never reverses.
+// One continuous orbit of the figure (th: 0 -> 2π, kept monotonic so it never
+// reverses): front -> walk + 180° turn -> arc round to the face -> hold while it
+// presents -> arc on and dive into the room. Repeated keys = a hold on that beat.
 const KEYS: Key[] = [
-  { p: 0.00, r: 5.2, th: 0.00, ph: 1.18, fx: 0, ly: 0.20, lz: 0 },   // hero — front, close, we see the face
-  { p: 0.20, r: 5.8, th: 0.55, ph: 1.14, fx: 0, ly: 0.25, lz: 0 },   // ease around as it starts walking
-  { p: 0.38, r: 5.6, th: 1.30, ph: 1.18, fx: 0, ly: 0.60, lz: 0 },   // walk + 180° completes; swung to the side-back
-  { p: 0.50, r: 3.2, th: 2.78, ph: 1.40, fx: 0, ly: 1.25, lz: 0.20 }, // APPROACH — arc around toward the figure's front
-  { p: 0.54, r: 2.9, th: 3.14, ph: 1.42, fx: 0, ly: 1.30, lz: 0.20 }, // settle in front of the FACE — presenter faces us
-  { p: 0.70, r: 2.9, th: 3.14, ph: 1.42, fx: 0, ly: 1.30, lz: 0.20 }, // HOLD — the portfolio is presented face-to-face
-  { p: 0.84, r: 2.4, th: 6.28, ph: 1.48, fx: 0, ly: 1.42, lz: -5.0 }, // arc on around the presenter; gaze flips toward the room
-  { p: 1.00, r: 2.1, th: 6.28, ph: 1.50, fx: 0, ly: 1.45, lz: -6.0 }, // dive line — straight on into the memory room (-z)
+  { p: 0.00, r: 5.2, th: 0.00, ph: 1.18, fx: 0, ly: 0.20, lz: 0 },   // hero — front, close
+  { p: 0.20, r: 5.8, th: 0.55, ph: 1.14, fx: 0, ly: 0.25, lz: 0 },   // starts walking
+  { p: 0.38, r: 5.6, th: 1.30, ph: 1.18, fx: 0, ly: 0.60, lz: 0 },   // 180° turn done; side-back
+  { p: 0.50, r: 3.2, th: 2.78, ph: 1.40, fx: 0, ly: 1.25, lz: 0.20 }, // arc toward the front
+  { p: 0.54, r: 2.9, th: 3.14, ph: 1.42, fx: 0, ly: 1.30, lz: 0.20 }, // settle in front of the face
+  { p: 0.70, r: 2.9, th: 3.14, ph: 1.42, fx: 0, ly: 1.30, lz: 0.20 }, // hold — presenting
+  { p: 0.84, r: 2.4, th: 6.28, ph: 1.48, fx: 0, ly: 1.42, lz: -5.0 }, // arc on; gaze toward the room
+  { p: 1.00, r: 2.1, th: 6.28, ph: 1.50, fx: 0, ly: 1.45, lz: -6.0 }, // dive into the room (-z)
 ];
 function sampleCam(p: number): { r: number; th: number; ph: number; fx: number; ly: number; lz: number } {
   if (p <= KEYS[0].p) return KEYS[0];
@@ -81,9 +68,8 @@ function sampleCam(p: number): { r: number; th: number; ph: number; fx: number; 
   return KEYS[KEYS.length - 1];
 }
 
-// environment "mood" along the same scroll timeline: fog / stars / grid / dust /
-// bloom / vignette / exposure all drift together so the void evolves as one
-// continuous journey (tight & dark → open star-filled awe → settled → closing in)
+// environment values keyed to the same scroll timeline: fog / stars / grid /
+// dust / bloom / vignette / exposure all interpolate together.
 type Mood = { p: number; fog: number; star: number; grid: number; dust: number; bloom: number; vig: number; exp: number };
 const MOOD: Mood[] = [
   { p: 0.0, fog: 0.04, star: 0.42, grid: 0, dust: 0.5, bloom: 0.32, vig: 0.24, exp: 0.86 }, // hero — softer vignette so the starfield fills the frame
@@ -193,7 +179,7 @@ export default function World() {
   // "leave a memory" trigger only surfaces where it makes sense
   const [memoryRoomActive, setMemoryRoomActive] = useState(false);
   const memoryRoomActiveRef = useRef(false); // throttle: only setState on crossings
-  // the project carousel beat — sits between the room and the finale
+  // the project carousel beat — plays after the figure presents, before the room
   const [carouselActive, setCarouselActive] = useState(false);
   const carouselActiveRef = useRef(false);
   const carouselProgressRef = useRef(0); // 0→1 sweep, read by the carousel's own rAF
@@ -220,6 +206,37 @@ export default function World() {
   useEffect(() => {
     openMemoryRef.current = (mem) => setOpenMemory(mem);
   });
+
+  // keyboard ←/→ steps through the portfolio one project at a time while the
+  // carousel is on screen. We only RETARGET the scroll position to the chosen
+  // project's dwell point and let the scene's own eased scrub glide there — so
+  // the keys feel identical to (a very precise) scroll.
+  useEffect(() => {
+    if (!carouselActive) return;
+    const N = content.projects.items.length;
+    if (N < 2) return;
+    // p↔scroll mapping mirrors the carousel: cp = (p-0.535)/0.21 (the progress
+    // ref), sweep = (cp-0.20)/0.56, and project i is dead-front at sweep i/(N-1).
+    const pForIndex = (i: number) => 0.535 + (0.2 + (i / (N - 1)) * 0.56) * 0.21;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      // don't hijack the arrows while typing in the memory form
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      if (max <= 0) return;
+      // read the current front project back from the live scroll position, so
+      // rapid presses accumulate correctly (scrollY updates instantly)
+      const p = window.scrollY / max;
+      const sweep = clamp01((clamp01((p - 0.535) / 0.21) - 0.2) / 0.56);
+      const cur = Math.round(sweep * (N - 1));
+      const next = Math.min(N - 1, Math.max(0, cur + (e.key === "ArrowRight" ? 1 : -1)));
+      e.preventDefault(); // capture the arrows so the page doesn't also nudge
+      window.scrollTo(0, pForIndex(next) * max);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [carouselActive]);
 
   useEffect(() => {
     fetchMemories().then(setMemories);
@@ -285,7 +302,7 @@ export default function World() {
     // phones report DPR up to ~3; the bokeh+bloom chain is fill-rate heavy, so cap
     // tighter on narrow/touch screens to keep the scroll-scrub smooth
     const touch = window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 768;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, touch ? 1.5 : 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, touch ? 1.25 : 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.82;
     renderer.localClippingEnabled = true; // for the floor-emergence reveal
@@ -608,30 +625,24 @@ export default function World() {
     };
     syncOccupiedRef.current(memoriesRef.current); // memories that loaded before this effect
 
-    // --- FINALE: THE SIGN-OFF ---
-    // The dive opens out into a clean, deep void; the figure has dissolved away.
-    // The "zolboo.xyz" light signature writes itself and the contact resolves as
-    // a DOM overlay (with its own centred glow) — no extra 3D clutter here.
+    // finale: the dive opens into an empty void; the wordmark + contact render
+    // as a DOM overlay, so nothing extra is added to the 3D scene here.
 
-    // figure stands on this plane (scaled to 3.4 tall + centred → feet at -1.7)
+    // figure feet rest here (scaled to 3.4 tall + centred)
     const FEET_Y = -1.7;
 
-    // --- dark cinematic void: the figure on a black reflective floor ---
-
-    // a cool key light raking across the figure from above-left
+    // cool key light from above-left
     const moonLight = new THREE.DirectionalLight(0xcfd8ff, 1.6);
     moonLight.position.set(-9, 11, -10);
     scene.add(moonLight);
 
-    // metallic human figure: free male human base mesh (T-pose, CC0, from
-    // BoQsc/Godot-3D-Male-Base-Mesh) rendered as a solid polished-chrome body
-    // that reflects the environment. Grouped for the slow turntable rotation.
+    // the figure, rendered as a polished chrome body that reflects the env map
     let figure: THREE.Group | null = null;
     const metalMat = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(0x1a1e26), // dark steel — reflections sculpt the form
+      color: new THREE.Color(0x1a1e26), // dark steel
       metalness: 1.0,
-      roughness: 0.18, // wet, glossy
-      envMapIntensity: 1.7, // rich reflections read the body's shape (no outline needed)
+      roughness: 0.18, // glossy
+      envMapIntensity: 1.7,
       clearcoat: 1.0,
       clearcoatRoughness: 0.06,
       // subtle oil-slick iridescence on the dark glossy skin
@@ -639,8 +650,7 @@ export default function World() {
       iridescenceIOR: 1.3,
       iridescenceThicknessRange: [180, 520],
     });
-    // liquid-metal surface: a vertex ripple that flows over the body so the chrome
-    // reflections roll and morph like molten metal (vertex-only injection — safe)
+    // vertex ripple over the body so the reflections shift slightly (vertex-only)
     let bodyTime: { value: number } | null = null;
     metalMat.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = { value: 0 };
@@ -659,10 +669,8 @@ export default function World() {
           }`
         );
     };
-    // sentient "AGI" rim glow: a thin additive fresnel shell wrapped around the
-    // body (separate mesh, so it never touches the body's own shading). It
-    // brightens along grazing edges and slowly pulses, like contained energy;
-    // the high bloom threshold then haloes this rim into an ethereal aura.
+    // additive fresnel rim shell around the body (separate mesh). brightens at
+    // grazing edges and pulses; the bloom pass then haloes it.
     const glowUniforms = { uTime: { value: 0 }, uFade: { value: 1 } };
     const glowMat = new THREE.ShaderMaterial({
       uniforms: glowUniforms,
@@ -993,12 +1001,8 @@ export default function World() {
 
     // smoothstep ramp between two scroll points
     const smooth = (a: number, b: number, x: number) => { const tt = clamp01((x - a) / (b - a)); return tt * tt * (3 - 2 * tt); };
-    // EVERYTHING IS MADE OF ATOMS. The figure is solid only as it rises (hero)
-    // and at the void-awe breather; at every content beat it bursts and its motes
-    // flow into that section's text/cards, then gather back. Three beats:
-    //   about   ~0.16–0.36   motes form the bio block (right)
-    //   works   ~0.50–0.85   motes form the project rows (right)
-    //   contact ~0.88–1.00   motes form the contact block (left), holds to the end
+    // the figure is solid as it rises, then dissolves into motes at each content
+    // beat and gathers back. three beats (about / works / contact):
     const dissolveAt = (x: number) => clamp01(Math.max(
       smooth(0.16, 0.22, x) - smooth(0.32, 0.38, x), // about
       smooth(0.5, 0.585, x) - smooth(0.85, 0.92, x), // works
@@ -1098,9 +1102,11 @@ export default function World() {
         // across this stretch anyway, so slowing the scrub only paces the stepped
         // carousel — each project is held at the front ~0.3s before the next.
         // Eased at the edges so entering/leaving the slow zone isn't a jolt.
+        // Base cap kept gentle so even a violent fling still glides through each
+        // chapter at a readable pace instead of teleporting past the content.
         const slow = smooth(0.53, 0.57, p) * (1 - smooth(0.70, 0.74, p));
-        const cap = lerp(0.0065, 0.0010, slow);
-        p += Math.max(-cap, Math.min(cap, (target - p) * 0.18));
+        const cap = lerp(0.0038, 0.0010, slow);
+        p += Math.max(-cap, Math.min(cap, (target - p) * 0.16));
       }
 
       // scrub the walk-and-turn clip by scroll: clip time = scroll position, eased
@@ -1753,11 +1759,13 @@ export default function World() {
 
 // Minimal scroll-progress rail — a slim cyan spine on the right that fills as
 // you move through the experience, with ticks at the real beats. Click to jump.
+// jump targets land squarely inside each beat: WORK in the live carousel
+// (active p0.53–0.76), MEMORIES inside the resolved room (p0.86–0.95)
 const RAIL_BEATS = [
   { p: 0.0, label: "INTRO" },
-  { p: 0.58, label: "WORK" },
-  { p: 0.80, label: "MEMORIES" },
-  { p: 0.94, label: "SIGN-OFF" },
+  { p: 0.62, label: "WORK" },
+  { p: 0.88, label: "MEMORIES" },
+  { p: 0.95, label: "SIGN-OFF" },
 ];
 
 function ScrollRail() {
@@ -1814,16 +1822,18 @@ function ScrollRail() {
             onClick={() => jump(b.p)}
             onPointerEnter={() => sfx.play("hover")}
             aria-label={b.label}
-            className="pointer-events-auto absolute left-1/2 -translate-x-1/2"
+            className="group pointer-events-auto absolute left-1/2 -translate-x-1/2"
             style={{ top: `${b.p * 100}%`, transform: "translate(-50%,-50%)" }}
           >
             <span
-              className={`block h-1.5 w-1.5 rounded-full border transition-all ${
-                i === active ? "scale-125 border-accent bg-accent" : "border-white/30 bg-bg"
+              className={`block h-1.5 w-1.5 rounded-full border transition-all group-hover:scale-125 group-hover:border-accent ${
+                i === active ? "scale-125 border-accent bg-accent" : "border-white/30 bg-bg group-hover:bg-accent/40"
               }`}
             />
+            {/* label: lit on the active beat, and revealed on hover for any beat
+                so the whole rail reads as a jump menu */}
             <span
-              className={`absolute right-4 top-1/2 -translate-y-1/2 whitespace-nowrap text-right font-mono text-[9px] uppercase tracking-[0.3em] transition-all duration-300 ${
+              className={`absolute right-4 top-1/2 -translate-y-1/2 whitespace-nowrap text-right font-mono text-[9px] uppercase tracking-[0.3em] transition-all duration-300 group-hover:text-accent group-hover:opacity-100 ${
                 i === active ? "text-accent opacity-100" : "text-muted opacity-0"
               }`}
             >
@@ -1959,6 +1969,15 @@ function FinaleWall({ active }: { active: boolean }) {
             className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent"
           >
             <Instagram size={15} strokeWidth={2} />
+          </a>
+          <a
+            href={content.contact.social.github}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="GitHub"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent"
+          >
+            <Github size={15} strokeWidth={2} />
           </a>
         </div>
       </div>
@@ -2231,6 +2250,9 @@ function WorldFallback() {
             </a>
             <a href={c.contact.social.instagram} target="_blank" rel="noreferrer" aria-label="Instagram" className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-muted transition-all hover:border-accent/40 hover:text-accent active:scale-95">
               <Instagram size={17} />
+            </a>
+            <a href={c.contact.social.github} target="_blank" rel="noreferrer" aria-label="GitHub" className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-muted transition-all hover:border-accent/40 hover:text-accent active:scale-95">
+              <Github size={17} />
             </a>
           </div>
         </section>

@@ -5,11 +5,13 @@ import { useEffect, useRef, useState } from "react";
 // Persistent FUI chrome over the whole stage: scanlines, a thin targeting frame
 // with corner brackets, and live telemetry readouts (scroll %, chapter, FPS,
 // clock). Purely decorative + non-interactive so it never blocks the scene.
+// thresholds aligned to the real scene beats: carousel goes active ~p0.53,
+// the memory room resolves ~p0.86, the finale ~p0.94
 const CHAPTERS: [number, string][] = [
   [0.0, "INTRO"],
-  [0.14, "TRANSIT"],
-  [0.5, "PORTFOLIO"],
-  [0.78, "MEMORY//ROOM"],
+  [0.16, "TRANSIT"],
+  [0.53, "PORTFOLIO"],
+  [0.86, "MEMORY//ROOM"],
   [0.94, "SIGN-OFF"],
 ];
 
