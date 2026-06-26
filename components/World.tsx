@@ -24,6 +24,7 @@ import ProjectsCarousel from "@/components/ProjectsCarousel";
 import SoundToggle from "@/components/SoundToggle";
 import HudOverlay from "@/components/HudOverlay";
 import ScrambleText from "@/components/ScrambleText";
+import SeoContent from "@/components/SeoContent";
 import { sfx } from "@/lib/sound";
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -286,10 +287,9 @@ export default function World() {
     (window as unknown as { __webglActive?: boolean }).__webglActive = true;
     window.dispatchEvent(new Event("scene-loading"));
 
-    // always open on the blank void + greeting (don't let the browser restore a
-    // prior scroll position, which would pop the figure in under the greeting)
-    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
-    window.scrollTo(0, 0);
+    // the scene always opens on the blank void + greeting; SmoothScroll owns the
+    // scroll reset (manual restoration + scrollTo 0) and runs right after this
+    // child effect mounts, so we don't duplicate it here.
 
     let disposed = false;
     const scene = new THREE.Scene();
@@ -307,6 +307,19 @@ export default function World() {
     renderer.toneMappingExposure = 0.82;
     renderer.localClippingEnabled = true; // for the floor-emergence reveal
     el.appendChild(renderer.domElement);
+
+    // GPU context loss (mobile memory pressure, driver reset, tab backgrounded
+    // too long): without this the canvas goes permanently black. Prevent the
+    // default so the browser keeps the element, then drop to the flat portfolio
+    // so the visitor isn't stuck staring at a dead stage.
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      console.warn("[world] WebGL context lost — falling back to the flat view");
+      (window as unknown as { __sceneReady?: boolean }).__sceneReady = true;
+      window.dispatchEvent(new Event("scene-ready"));
+      setFallback(true);
+    };
+    renderer.domElement.addEventListener("webglcontextlost", onContextLost);
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -695,23 +708,6 @@ export default function World() {
         }
       `,
     });
-    // particle-dissolve cloud (built once the body geometry exists) — the figure
-    // disperses into motes and reforms across chapter transitions
-    let dissolveUniforms: {
-      uDissolve: { value: number };
-      uForm: { value: number };
-      uTime: { value: number };
-      uPosY: { value: number };
-      uVis: { value: number };
-      uClusters: { value: THREE.Vector3[] };
-      uText: { value: number };
-      uTextOrigin: { value: THREE.Vector3 };
-      uTextRight: { value: THREE.Vector3 };
-      uTextUp: { value: THREE.Vector3 };
-    } | null = null;
-    let dissolveMat: THREE.ShaderMaterial | null = null;
-    let dissolveGeo: THREE.BufferGeometry | null = null;
-    let figureParticles: THREE.Points | null = null;
     // Mixamo animated figure: mixer plays the clip; hips XZ is locked to hip0 so
     // the walk-and-turn happens in place rather than striding off-screen
     let mixer: THREE.AnimationMixer | null = null;
@@ -782,6 +778,15 @@ export default function World() {
         (window as unknown as { __sceneProgress?: number }).__sceneProgress = e.loaded / e.total;
         window.dispatchEvent(new Event("scene-progress"));
       }
+    }, (err) => {
+      // model 404 / network failure: don't strand the visitor on a 25s blank
+      // loader over an empty stage. Mark the scene "ready" so the veil lifts,
+      // and drop to the flat DOM portfolio so they still get the full content.
+      if (disposed) return;
+      console.error("[world] figure failed to load:", err);
+      (window as unknown as { __sceneReady?: boolean }).__sceneReady = true;
+      window.dispatchEvent(new Event("scene-ready"));
+      setFallback(true);
     });
 
     // mouse parallax
@@ -909,112 +914,21 @@ export default function World() {
     const eScratch = new THREE.Euler();
     const qScratch = new THREE.Quaternion();
     const ARM_POINT = { arm: [-0.5, -1.45, -1.0], fore: [0, 0, -0.2], hand: [0, 0, 0] };
-    // scratch vectors for the camera-aligned project-row cluster column
-    const fwd = new THREE.Vector3();
-    const right = new THREE.Vector3();
-    const upWorld = new THREE.Vector3(0, 1, 0);
-    const anchorV = new THREE.Vector3();
-    // scratch for mapping a DOM text element's screen rect into a world quad
-    const txO = new THREE.Vector3();
-    const txR = new THREE.Vector3();
-    const txU = new THREE.Vector3();
-    const camFwd = new THREE.Vector3();
-    let textSection = ""; // which section's text the motes are currently shaped to
-    // map a screen pixel onto a FLAT plane `depth` units in front of the camera
-    // (constant view-space depth, not constant distance — so a screen rect maps
-    // to a quad that projects back exactly onto that rect, no perspective skew)
-    const ndcToWorld = (px: number, py: number, depth: number, out: THREE.Vector3) => {
-      out.set((px / el.clientWidth) * 2 - 1, -((py / el.clientHeight) * 2 - 1), 0.5);
-      out.unproject(camera).sub(camera.position); // ray cam→point
-      out.multiplyScalar(depth / out.dot(camFwd)).add(camera.position);
-      return out;
-    };
-    // sample a DOM text element's glyph pixels → list of [u,v] in its own box,
-    // then scatter the motes across those points so they condense into the words
-    const shapeMotesToText = (elx: HTMLElement) => {
-      if (!dissolveGeo) return;
-      const cs = getComputedStyle(elx);
-      const fontSize = parseFloat(cs.fontSize) || 32;
-      const lh = parseFloat(cs.lineHeight) || fontSize * 1.15;
-      const wrapW = Math.max(8, elx.clientWidth || elx.getBoundingClientRect().width);
-      const meas = document.createElement("canvas").getContext("2d")!;
-      const font = `${cs.fontStyle} ${cs.fontWeight} ${fontSize}px ${cs.fontFamily}`;
-      meas.font = font;
-      const words = (elx.textContent || "").trim().split(/\s+/);
-      const lines: string[] = [];
-      let line = "";
-      for (const w of words) {
-        const test = line ? line + " " + w : w;
-        if (meas.measureText(test).width > wrapW && line) { lines.push(line); line = w; } else line = test;
-      }
-      if (line) lines.push(line);
-      const SS = 2;
-      const Wc = Math.ceil(wrapW) * SS;
-      const Hc = Math.max(8, Math.ceil(lines.length * lh)) * SS;
-      const cv = document.createElement("canvas");
-      cv.width = Wc; cv.height = Hc;
-      const ctx = cv.getContext("2d")!;
-      ctx.scale(SS, SS);
-      ctx.fillStyle = "#fff";
-      ctx.font = font;
-      // centre each line in its line-box (matches the CSS line-height layout) so
-      // the glyph rows line up vertically with the real HTML heading
-      ctx.textBaseline = "middle";
-      lines.forEach((ln, i) => ctx.fillText(ln, 0, i * lh + lh / 2));
-      const data = ctx.getImageData(0, 0, Wc, Hc).data;
-      const uvs: number[] = [];
-      const step = 3 * SS;
-      for (let yy = 0; yy < Hc; yy += step) for (let xx = 0; xx < Wc; xx += step) {
-        if (data[(yy * Wc + xx) * 4 + 3] > 100) uvs.push(xx / Wc, 1 - yy / Hc);
-      }
-      const n = uvs.length / 2;
-      if (n < 4) return;
-      const attr = dissolveGeo.attributes.aTextUV as THREE.BufferAttribute;
-      const arr = attr.array as Float32Array;
-      for (let i = 0; i < arr.length / 2; i++) {
-        const j = ((Math.random() * n) | 0) * 2;
-        arr[i * 2] = uvs[j];
-        arr[i * 2 + 1] = uvs[j + 1];
-      }
-      attr.needsUpdate = true;
-    };
     let raf = 0;
     // smoothed scroll progress + horizontal framing (shifts figure off-centre)
     let p = 0;
     let frameX = 0;
     let t = 0; // animation clock for breathing / float
     let introT = 0; // clock for the floor-emergence reveal
-    let introDone = false;
     let started = false; // latches true once the user first scrolls down
     const INTRO_DUR = 4.2;
     // debug: /?p=<0..1> pins scroll progress for tuning (null = normal scroll)
     const pDebugRaw = new URLSearchParams(window.location.search).get("p");
     const pDebug = pDebugRaw != null ? clamp01(parseFloat(pDebugRaw)) : null;
-    const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
     const sm = { x: 0, y: 0 }; // inertia-smoothed pointer
 
     // smoothstep ramp between two scroll points
     const smooth = (a: number, b: number, x: number) => { const tt = clamp01((x - a) / (b - a)); return tt * tt * (3 - 2 * tt); };
-    // the figure is solid as it rises, then dissolves into motes at each content
-    // beat and gathers back. three beats (about / works / contact):
-    const dissolveAt = (x: number) => clamp01(Math.max(
-      smooth(0.16, 0.22, x) - smooth(0.32, 0.38, x), // about
-      smooth(0.5, 0.585, x) - smooth(0.85, 0.92, x), // works
-      smooth(0.88, 0.93, x), // contact (stays dispersed → atoms hold the contact block)
-    ));
-    // motes condense into the section's clusters (starts almost with the dissolve
-    // so they head for the layout rather than drifting nowhere)
-    const formAt = (x: number) => Math.max(
-      smooth(0.185, 0.27, x) * (1 - smooth(0.31, 0.37, x)), // about
-      smooth(0.52, 0.63, x) * (1 - smooth(0.83, 0.89, x)), // works
-      smooth(0.9, 0.96, x), // contact
-    );
-    // the HTML resolves out of the formed clusters; motes fade once it has
-    const htmlAt = (x: number) => Math.max(
-      smooth(0.24, 0.3, x) * (1 - smooth(0.33, 0.38, x)), // about
-      smooth(0.67, 0.75, x) * (1 - smooth(0.8, 0.86, x)), // works — let the glyph-motes linger before the crisp text takes over
-      smooth(0.93, 0.98, x), // contact
-    );
     let metalTrans = false; // track transparent flag to avoid per-frame recompiles
 
     // o = visibility 0..1; (dx,dy) = slide-in offset direction (px) when hidden
@@ -1476,6 +1390,7 @@ export default function World() {
       window.removeEventListener("pointermove", onMouse);
       el.removeEventListener("click", onSceneClick);
       el.removeEventListener("pointermove", onHover);
+      renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
       ro.disconnect();
       starGeo.dispose();
       grid.geometry.dispose();
@@ -1499,6 +1414,10 @@ export default function World() {
 
   return (
     <>
+      {/* crawler- + screen-reader-readable mirror of the whole portfolio (the 3D
+          scene itself is opaque to both). Visually hidden, present in the SSR HTML. */}
+      <SeoContent />
+
       {/* scroll runway — scrubs the figure's walk-and-turn clip; the stage below
           is fixed/pinned so the scene holds while the body animates with scroll */}
       <div style={{ height: "1350vh" }} aria-hidden />
