@@ -430,7 +430,14 @@ export default function World() {
     // instead of falling into a black silhouette. Aimed at the head height.
     const faceLight = new THREE.DirectionalLight(0xcfe9ff, 0);
     faceLight.position.set(0, 3.2, -7);
-    scene.add(keyLight, rimLight, fillLight, faceLight);
+    // HERO front-fill — the landing frame (p=0) faces the figure's front (+z),
+    // where the dark chrome body otherwise reads as a near-black silhouette. A
+    // soft +z key lifts the front so the figure has presence on first sight, then
+    // fades out the instant the walk begins (handed off to the moving rig) so the
+    // carousel / room / finale art direction is left untouched. Aimed chest-high.
+    const heroFill = new THREE.DirectionalLight(0xdce9ff, 0);
+    heroFill.position.set(1.5, 4, 8);
+    scene.add(keyLight, rimLight, fillLight, faceLight, heroFill);
 
     // soft round sprite for the point clouds (stars + dust) — without it
     // PointsMaterial renders hard squares
@@ -981,6 +988,9 @@ export default function World() {
         // bring up the front/face light only while the camera is round at the
         // figure's front for the portfolio, then let it dissolve with the dive
         faceLight.intensity = smooth(0.42, 0.54, p) * (1 - smooth(0.82, 0.90, p)) * 1.15;
+        // hero front-fill: full on the landing frame, gone by the time the walk
+        // starts (mirrors heroOut at p≈0.16) so only the first impression changes
+        heroFill.intensity = (1 - smooth(0.04, 0.16, p)) * 1.1;
         const grow = 0.9 + 0.1 * showE;
 
         // the catwalk animation drives the body; here we only reveal it (grow +
