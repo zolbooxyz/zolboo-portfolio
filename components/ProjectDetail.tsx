@@ -63,7 +63,7 @@ export default function ProjectDetail({ project, onClose }: { project: Project; 
         </button>
 
         {/* hero screenshot */}
-        <ProjectShot id={project.id} title={project.title} category={project.category} className="aspect-[16/9] w-full" />
+        <ProjectShot id={project.id} title={project.title} className="aspect-[16/9] w-full" />
 
         <motion.div
           initial="hidden"

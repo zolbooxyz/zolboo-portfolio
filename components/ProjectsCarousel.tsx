@@ -31,6 +31,20 @@ export default function ProjectsCarousel({
   const headRef = useRef<HTMLDivElement>(null);
   const footRef = useRef<HTMLDivElement>(null); // counter + tap hint — fades with the heading
   const rafRef = useRef<number>(0);
+  // pointer parallax — target (raw) and current (eased) tilt in normalized -1..1
+  const ptrTarget = useRef({ x: 0, y: 0 });
+  const ptrNow = useRef({ x: 0, y: 0 });
+
+  // track the cursor so the whole ring tilts a touch toward it (desktop depth cue)
+  useEffect(() => {
+    if (!active) return;
+    const onMove = (e: PointerEvent) => {
+      ptrTarget.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      ptrTarget.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener("pointermove", onMove);
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [active]);
 
   useEffect(() => {
     if (!active) return;
@@ -40,6 +54,7 @@ export default function ProjectsCarousel({
     const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
     const tick = () => {
       const p = clamp01(progressRef.current);
+      const now = performance.now() / 1000;
       // Three beats woven into the journey:
       //  ENTRANCE (0→0.20)  — the ring blooms out of the figure's pointing hand
       //  SWEEP    (0.20→0.76) — each project rotates to the front and DWELLS there
@@ -47,10 +62,10 @@ export default function ProjectsCarousel({
       //                         handing off into the memory-room dive that follows
       const e = Math.min(1, p / 0.20);
       const ee = e * e * (3 - 2 * e); // ease-in-out
-      // STEPPED sweep: instead of gliding past all six at one constant speed (a
-      // fast scroll blows through them in an instant), each card rotates to the
-      // front then HOLDS for a beat before the next — the ring "clicks" project
-      // to project so every one gets a readable moment.
+      // STEPPED sweep: instead of gliding past all the cards at one constant speed
+      // (a fast scroll blows through them in an instant), each card rotates to the
+      // front then HOLDS for a beat before the next — the ring "clicks" project to
+      // project so every one gets a readable moment.
       const sweep = clamp01((p - 0.20) / 0.56);
       const u = sweep * (N - 1);                  // 0..N-1 — which card is at front
       const i = Math.min(N - 2, Math.floor(u));
@@ -63,7 +78,14 @@ export default function ProjectsCarousel({
       // into the room we are about to dive through, dissolving as they recede.
       const x = clamp01((p - 0.82) / 0.18);
       const xe = x * x;
-      ring.style.transform = `rotateY(${ringAngle}deg)`;
+
+      // ease the pointer tilt toward the cursor; flatten it out on entrance/exit
+      ptrNow.current.x += (ptrTarget.current.x - ptrNow.current.x) * 0.06;
+      ptrNow.current.y += (ptrTarget.current.y - ptrNow.current.y) * 0.06;
+      const settle = ee * (1 - xe);               // only tilt once the ring has bloomed
+      const tiltY = ptrNow.current.x * 6 * settle;
+      const tiltX = -ptrNow.current.y * 4 * settle;
+      ring.style.transform = `rotateX(${tiltX}deg) rotateY(${ringAngle + tiltY}deg)`;
 
       // bloom the whole ring out of the hand (entrance), then recede it into the
       // depth + drift toward the vanishing point (exit) — one continuous gesture
@@ -73,8 +95,9 @@ export default function ProjectsCarousel({
         const dx = (handRef.current.x - 0.5) * window.innerWidth * inv;
         const dy = (handRef.current.y - 0.5) * window.innerHeight * inv;
         const lift = -xe * window.innerHeight * 0.12; // drift up into the distance
+        const bob = Math.sin(now * 0.9) * 5 * settle; // gentle idle float when settled
         const scale = (0.1 + 0.9 * ee) * (1 - 0.5 * xe); // bloom up, then shrink away
-        wrap.style.transform = `translate(${dx}px, ${dy + lift}px) scale(${scale})`;
+        wrap.style.transform = `translate(${dx}px, ${dy + lift + bob}px) scale(${scale})`;
         wrap.style.opacity = String(Math.min(1, e * 1.5) * (1 - xe));
       }
       const headO = Math.max(0, (e - 0.4) / 0.6) * (1 - x);
@@ -91,8 +114,10 @@ export default function ProjectsCarousel({
         const rad = (a * Math.PI) / 180;
         const front = Math.cos(rad); // 1 = facing us, -1 = behind
         const f = Math.max(0, front);
-        el.style.opacity = String(0.12 + 0.88 * f * f);
-        el.style.filter = `brightness(${0.55 + 0.45 * f})`;
+        // side cards recede hard — dim, desaturate and blur them so the front card
+        // owns the frame instead of fighting its neighbours
+        el.style.opacity = String(0.04 + 0.96 * f * f * f);
+        el.style.filter = `brightness(${0.4 + 0.6 * f}) saturate(${0.5 + 0.5 * f}) blur(${(1 - f) * 2.5}px)`;
         const isFront = Math.abs(a) < STEP / 2;
         el.dataset.front = isFront ? "1" : "0";
         if (front > frontMax) {
@@ -115,13 +140,13 @@ export default function ProjectsCarousel({
       style={{ opacity: active ? 1 : 0 }}
       aria-hidden={!active}
     >
-      {/* section heading */}
-      <div ref={headRef} className="absolute left-1/2 top-[6%] -translate-x-1/2 text-center sm:top-[12%]">
-        <div className="flex items-center justify-center gap-2 font-mono text-[9px] uppercase tracking-[0.45em] text-accent/70 sm:text-[10px]">
+      {/* section heading — kept in a reserved top band, clear of the ring */}
+      <div ref={headRef} className="absolute left-1/2 top-[9%] -translate-x-1/2 text-center sm:top-[8%]">
+        <div className="flex items-center justify-center gap-2 font-mono text-[9px] uppercase tracking-[0.4em] text-accent/70 sm:text-[10px]">
           <span className="h-1 w-1 animate-pulseGlow rounded-full bg-accent" />
           {t(content.projects.label)}
         </div>
-        <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-ink sm:text-4xl">
+        <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-ink sm:text-[2rem]">
           {t(content.projects.heading)}
         </h2>
       </div>
@@ -129,11 +154,11 @@ export default function ProjectsCarousel({
       {/* 3D ring — wrapped so it can bloom out of the figure's hand on entrance */}
       <div ref={wrapRef} className="will-change-[transform,opacity]">
       {/* radius (--carousel-r) + perspective are tuned per-breakpoint so the
-          perspective-magnified FRONT card never overflows a phone screen:
-          mobile keeps a shallow ring + far perspective (≈1.25× blow-up on a
-          260px card → ~325px, fits 390px) while desktop stays roomy. */}
+          perspective-magnified FRONT card stays inside the central band (clear of
+          the heading and footer) on every screen: shallower magnification keeps
+          the front card readable without overflowing into the labels. */}
       <div
-        className="relative h-[360px] w-[240px] [--carousel-r:260px] [perspective:1400px] sm:h-[430px] sm:w-[380px] sm:[--carousel-r:380px] sm:[perspective:1200px]"
+        className="relative h-[330px] w-[228px] [--carousel-r:236px] [perspective:1500px] sm:h-[380px] sm:w-[360px] sm:[--carousel-r:360px] sm:[perspective:1900px]"
       >
         <div
           ref={ringRef}
@@ -147,23 +172,25 @@ export default function ProjectsCarousel({
                 cardsRef.current[i] = el;
               }}
               data-front="0"
-              className="group absolute inset-0 flex items-center justify-center will-change-[opacity,transform] [backface-visibility:hidden]"
+              className="group absolute inset-0 flex items-center justify-center will-change-[opacity,transform,filter] [backface-visibility:hidden]"
               style={{
-                transform: `rotateY(${i * STEP}deg) translateZ(var(--carousel-r, 380px))`,
+                transform: `rotateY(${i * STEP}deg) translateZ(var(--carousel-r, 360px))`,
               }}
             >
               <button
                 type="button"
                 onClick={() => active && setOpenProject(proj)}
-                className={`pointer-events-none flex w-full cursor-default flex-col overflow-hidden rounded-xl border border-line bg-surface/90 text-left backdrop-blur-md transition-shadow group-data-[front=1]:border-accent/50 group-data-[front=1]:shadow-glow ${
+                className={`pointer-events-none relative flex w-full cursor-default flex-col overflow-hidden rounded-2xl border border-line bg-surface/85 text-left backdrop-blur-xl transition-[transform,box-shadow,border-color] duration-300 ease-out group-data-[front=1]:scale-[1.04] group-data-[front=1]:border-accent/50 group-data-[front=1]:shadow-glow ${
                   active ? "group-data-[front=1]:pointer-events-auto group-data-[front=1]:cursor-pointer" : ""
                 }`}
               >
+                {/* top accent hairline — lights up on the front card */}
+                <span className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-gradient-to-r from-transparent via-accent/0 to-transparent transition-opacity duration-300 group-data-[front=1]:via-accent/70" />
+
                 {/* screenshot (or branded placeholder) */}
                 <ProjectShot
                   id={proj.id}
                   title={proj.title}
-                  category={proj.category}
                   className="aspect-[16/9] w-full"
                 />
                 <div className="flex flex-col p-4 sm:p-5">
@@ -193,6 +220,12 @@ export default function ProjectsCarousel({
                     </span>
                   </div>
                 </div>
+
+                {/* corner HUD ticks — frame the active card */}
+                <span className="pointer-events-none absolute left-2 top-2 h-3 w-3 border-l border-t border-accent/0 transition-colors duration-300 group-data-[front=1]:border-accent/50" />
+                <span className="pointer-events-none absolute right-2 top-2 h-3 w-3 border-r border-t border-accent/0 transition-colors duration-300 group-data-[front=1]:border-accent/50" />
+                <span className="pointer-events-none absolute bottom-2 left-2 h-3 w-3 border-b border-l border-accent/0 transition-colors duration-300 group-data-[front=1]:border-accent/50" />
+                <span className="pointer-events-none absolute bottom-2 right-2 h-3 w-3 border-b border-r border-accent/0 transition-colors duration-300 group-data-[front=1]:border-accent/50" />
               </button>
             </div>
           ))}
@@ -200,8 +233,8 @@ export default function ProjectsCarousel({
       </div>
       </div>
 
-      {/* progress counter + tap hint */}
-      <div ref={footRef} className="absolute bottom-[11%] left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5">
+      {/* progress counter + tap hint — reserved bottom band */}
+      <div ref={footRef} className="absolute bottom-[7%] left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5">
         <div className="font-mono text-[11px] tracking-[0.3em] text-muted">
           <span ref={counterRef} className="text-accent">01</span>
           <span className="text-muted/40"> / {String(N).padStart(2, "0")}</span>
