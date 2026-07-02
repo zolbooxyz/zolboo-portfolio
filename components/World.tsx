@@ -73,9 +73,10 @@ function sampleCam(p: number): { r: number; th: number; ph: number; fx: number; 
 // dust / bloom / vignette / exposure all interpolate together.
 type Mood = { p: number; fog: number; star: number; grid: number; dust: number; bloom: number; vig: number; exp: number };
 const MOOD: Mood[] = [
-  { p: 0.0, fog: 0.04, star: 0.42, grid: 0, dust: 0.5, bloom: 0.32, vig: 0.24, exp: 0.86 }, // hero — softer vignette so the starfield fills the frame
-  { p: 0.42, fog: 0.03, star: 0.6, grid: 0, dust: 0.45, bloom: 0.36, vig: 0.34, exp: 0.9 }, // opens slightly as it moves
-  { p: 0.88, fog: 0.036, star: 0.55, grid: 0, dust: 0.5, bloom: 0.34, vig: 0.38, exp: 0.88 }, // dive settle, just before the finale
+  { p: 0.0, fog: 0.04, star: 0.42, grid: 0, dust: 0.5, bloom: 0.32, vig: 0.24, exp: 0.92 }, // hero — softer vignette so the starfield fills the frame
+  { p: 0.42, fog: 0.03, star: 0.6, grid: 0, dust: 0.45, bloom: 0.36, vig: 0.34, exp: 0.98 }, // walk chapter — lifted so the figure stays sculpted, not silhouette-black
+  { p: 0.58, fog: 0.032, star: 0.65, grid: 0, dust: 0.5, bloom: 0.37, vig: 0.3, exp: 1.02 }, // stand + present — the frame opens and lifts so the pause never reads as a black void
+  { p: 0.88, fog: 0.036, star: 0.55, grid: 0, dust: 0.5, bloom: 0.34, vig: 0.38, exp: 0.94 }, // dive settle, just before the finale
   { p: 1.0, fog: 0.02, star: 0.18, grid: 0, dust: 0.5, bloom: 0.34, vig: 0.3, exp: 0.96 }, // FINALE sign-off — clean dark void, dim the field stars so the signature reads
 ];
 function sampleMood(p: number): Omit<Mood, "p"> {
@@ -105,8 +106,8 @@ function hasWebGL(): boolean {
   }
 }
 
-// shared easing for the HUD entrance variants below
-const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+// shared easing for the HUD entrance variants below (= tailwind's ease-reveal)
+const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 // --- HERO character-select HUD entrance (framer-motion variants) ---
 const hudContainer = {
@@ -453,9 +454,11 @@ export default function World() {
     const dotTex = new THREE.CanvasTexture(dotCanvas);
     dotTex.colorSpace = THREE.SRGBColorSpace;
 
-    // starfield
+    // starfield — attenuated sizes + a two-tone colour mix (white / cyan / a few
+    // iris) so the field reads as deep layered space instead of a flat noise map
     const starN = 7200;
     const starPos = new Float32Array(starN * 3);
+    const starCol = new Float32Array(starN * 3);
     for (let i = 0; i < starN; i++) {
       const r = 10 + Math.random() * 62; // wide depth range → layered space
       const th = Math.random() * Math.PI * 2;
@@ -463,12 +466,22 @@ export default function World() {
       starPos[i * 3] = r * Math.sin(ph) * Math.cos(th);
       starPos[i * 3 + 1] = r * Math.cos(ph);
       starPos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+      const roll = Math.random();
+      const v = 0.6 + Math.random() * 0.4; // brightness variation
+      if (roll < 0.2) {
+        starCol[i * 3] = 0.5 * v; starCol[i * 3 + 1] = 0.95 * v; starCol[i * 3 + 2] = 1.0 * v; // cool cyan
+      } else if (roll < 0.24) {
+        starCol[i * 3] = 0.8 * v; starCol[i * 3 + 1] = 0.55 * v; starCol[i * 3 + 2] = 1.0 * v; // rare iris
+      } else {
+        starCol[i * 3] = v; starCol[i * 3 + 1] = v; starCol[i * 3 + 2] = v; // white
+      }
     }
     const starGeo = new THREE.BufferGeometry();
     starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+    starGeo.setAttribute("color", new THREE.BufferAttribute(starCol, 3));
     const stars = new THREE.Points(
       starGeo,
-      new THREE.PointsMaterial({ color: new THREE.Color(palette.ink), size: 2, map: dotTex, transparent: true, opacity: 0.5, depthWrite: false, sizeAttenuation: false })
+      new THREE.PointsMaterial({ vertexColors: true, size: 0.14, map: dotTex, transparent: true, opacity: 0.5, depthWrite: false, sizeAttenuation: true })
     );
     scene.add(stars);
 
@@ -509,8 +522,9 @@ export default function World() {
     latGeo.setAttribute("position", new THREE.Float32BufferAttribute(latPts, 3));
     const gridUniforms = {
       uReveal: { value: 0 },
+      uTime: { value: 0 },
       uColA: { value: new THREE.Color(palette.accent) }, // bright cyan (near)
-      uColB: { value: new THREE.Color(palette.accent2) }, // deep teal (far)
+      uColB: { value: new THREE.Color(palette.accentDeep) }, // desaturated deep (far — big areas never clip)
     };
     const gridMat = new THREE.ShaderMaterial({
       uniforms: gridUniforms,
@@ -523,6 +537,7 @@ export default function World() {
       `,
       fragmentShader: /* glsl */ `
         uniform float uReveal;
+        uniform float uTime;
         uniform vec3 uColA;
         uniform vec3 uColB;
         varying vec3 vW;
@@ -532,9 +547,16 @@ export default function World() {
           // (purely DISTANCE-based — steady, so the cubes hold still when the
           // scroll stops instead of pulsing/drifting away)
           float fade = (1.0 - smoothstep(60.0, 175.0, d)) * smoothstep(3.0, 12.0, d);
-          // colour shifts with depth: near = bright cyan, far = deep teal
+          // colour shifts with depth: near = bright cyan, far = desaturated deep
           float depthMix = smoothstep(-120.0, 34.0, vW.z);
           vec3 col = mix(uColB, uColA, depthMix);
+          // per-cell shimmer — each cube breathes on its own phase, so the
+          // lattice reads as a living system rather than wallpaper
+          float cell = dot(floor((vW + 7.0) / 14.0), vec3(7.3, 11.1, 5.7));
+          float tw = 0.82 + 0.18 * sin(uTime * 0.7 + cell * 1.7);
+          // data pulse — a soft band of light travelling down the corridor
+          float band = exp(-pow(mod(vW.z + uTime * 6.0, 90.0) - 45.0, 2.0) / 60.0);
+          col = col * tw + uColA * band * 0.22;
           float a = fade * uReveal;
           gl_FragColor = vec4(col * a, a);
         }
@@ -550,7 +572,9 @@ export default function World() {
     // the camera each frame so it stays the far sky.
     const skyUniforms = {
       uFade: { value: 0 },
+      uBand: { value: 1 }, // horizon-band level — eases down once the finale settles so the sign-off owns the frame
       uHorizon: { value: new THREE.Color(palette.accent2) }, // teal glow band at the horizon
+      uIris: { value: new THREE.Color(palette.iris) },       // faint violet dusk just above it
       uZenith: { value: new THREE.Color(0x061018) },         // deep dark overhead → text stays legible
       uGround: { value: new THREE.Color(0x02050a) },         // near-black below the horizon
     };
@@ -568,7 +592,9 @@ export default function World() {
         `,
         fragmentShader: /* glsl */ `
           uniform float uFade;
+          uniform float uBand;
           uniform vec3 uHorizon;
+          uniform vec3 uIris;
           uniform vec3 uZenith;
           uniform vec3 uGround;
           varying vec3 vDir;
@@ -577,8 +603,14 @@ export default function World() {
             // a deep dark sky everywhere (so overlaid text stays legible),
             // easing to near-black below the horizon
             vec3 col = mix(uGround, uZenith, smoothstep(-0.22, 0.28, y));
-            // a single tight teal glow band hugging the horizon line
-            col += uHorizon * exp(-abs(y) * 9.0) * 0.6;
+            // a TIGHT teal band hugging the horizon (narrow + dimmer so it
+            // reads as a dusk line, not a wall of cyan filling the frame)
+            col += uHorizon * exp(-abs(y) * 16.0) * 0.4 * uBand;
+            // faint iris afterglow just above — the material colour at dusk
+            col += uIris * exp(-abs(y - 0.1) * 12.0) * 0.07 * uBand;
+            // blue-noise-ish dither so the long gradient never bands
+            float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+            col += (n - 0.5) * (2.0 / 255.0);
             gl_FragColor = vec4(col, 1.0) * uFade;
           }
         `,
@@ -596,13 +628,49 @@ export default function World() {
     scene.add(occGroup);
     const occBoxGeo = new THREE.BoxGeometry(2 * HC, 2 * HC, 2 * HC);
     const occEdgeGeo = new THREE.EdgesGeometry(occBoxGeo);
-    const occFaceMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(palette.accent),
+    // holographic glass: near-transparent face centres with glowing borders +
+    // a fresnel lift at grazing angles — instead of flat additive slabs that
+    // stack into opaque teal walls when several faces overlap
+    const occUniforms = {
+      uReveal: { value: 0 },
+      uColor: { value: new THREE.Color(palette.accentDeep) }, // face body — deep, never clips
+      uEdge: { value: new THREE.Color(palette.accent) },      // border glow — signal cyan
+    };
+    const occFaceMat = new THREE.ShaderMaterial({
+      uniforms: occUniforms,
       transparent: true,
-      opacity: 0,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       side: THREE.DoubleSide,
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        varying vec3 vN;
+        varying vec3 vP;
+        void main(){
+          vUv = uv;
+          vN = normalize(normalMatrix * normal);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vP = mv.xyz;
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uReveal;
+        uniform vec3 uColor;
+        uniform vec3 uEdge;
+        varying vec2 vUv;
+        varying vec3 vN;
+        varying vec3 vP;
+        void main(){
+          // 0 at the face centre → 1 at its border
+          float edge = max(abs(vUv.x - 0.5), abs(vUv.y - 0.5)) * 2.0;
+          float border = smoothstep(0.62, 1.0, edge);
+          float fres = pow(1.0 - abs(dot(normalize(vN), normalize(-vP))), 2.0);
+          float a = (0.03 + border * border * 0.4 + fres * 0.16) * uReveal;
+          vec3 col = mix(uColor, uEdge, border * 0.75 + fres * 0.25);
+          gl_FragColor = vec4(col * a, a);
+        }
+      `,
     });
     const occEdgeMat = new THREE.LineBasicMaterial({
       color: new THREE.Color(palette.accent),
@@ -648,10 +716,57 @@ export default function World() {
     moonLight.position.set(-9, 11, -10);
     scene.add(moonLight);
 
+    // JOURNEY RIM — a permanent cool kicker from behind-above that keeps the
+    // figure's silhouette sculpted through the walk chapter (p≈0.06–0.6),
+    // where the camera otherwise faces its unlit side. Also carries the skill
+    // lock-in pulse (see the tick) so each row landing puts light on the body.
+    const journeyRim = new THREE.DirectionalLight(0xbfe0ff, 0);
+    journeyRim.position.set(4, 7, -7);
+    scene.add(journeyRim);
+
+    // CHARACTER-SELECT STAGE — a glossy dark disc + accent ring anchoring the
+    // figure to a floor (kills the "floating in a void" read). The disc catches
+    // the env-map highlights; a radial alpha fade melts it into the dark.
+    const stageAlphaCanvas = document.createElement("canvas");
+    stageAlphaCanvas.width = stageAlphaCanvas.height = 256;
+    const sctx = stageAlphaCanvas.getContext("2d")!;
+    const sgrad = sctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    sgrad.addColorStop(0, "#ffffff");
+    sgrad.addColorStop(0.55, "#8c8c8c");
+    sgrad.addColorStop(1, "#000000");
+    sctx.fillStyle = sgrad;
+    sctx.fillRect(0, 0, 256, 256);
+    const stageAlpha = new THREE.CanvasTexture(stageAlphaCanvas);
+    const stageMat = new THREE.MeshStandardMaterial({
+      color: 0x0b1017,
+      metalness: 0.9,
+      roughness: 0.42, // blurred env reflection → polished, not mirror
+      envMapIntensity: 1.15,
+      transparent: true,
+      opacity: 0,
+      alphaMap: stageAlpha,
+      depthWrite: false,
+    });
+    const stage = new THREE.Mesh(new THREE.CircleGeometry(3.6, 64), stageMat);
+    stage.rotation.x = -Math.PI / 2;
+    stage.position.y = FEET_Y - 0.01;
+    const stageRingMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(palette.accent),
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const stageRing = new THREE.Mesh(new THREE.RingGeometry(2.42, 2.5, 96), stageRingMat);
+    stageRing.rotation.x = -Math.PI / 2;
+    stageRing.position.y = FEET_Y + 0.01;
+    scene.add(stage, stageRing);
+
     // the figure, rendered as a polished chrome body that reflects the env map
     let figure: THREE.Group | null = null;
     const metalMat = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(0x1a1e26), // dark steel
+      color: new THREE.Color(0x21262f), // dark steel, lifted a step so the body reads
       metalness: 1.0,
       roughness: 0.18, // glossy
       envMapIntensity: 1.7,
@@ -927,6 +1042,7 @@ export default function World() {
     let frameX = 0;
     let t = 0; // animation clock for breathing / float
     let introT = 0; // clock for the floor-emergence reveal
+    let lastFrameMs = performance.now(); // real frame delta — keeps motion speed identical on 30/60/120Hz displays
     let started = false; // latches true once the user first scrolls down
     const INTRO_DUR = 4.2;
     // debug: /?p=<0..1> pins scroll progress for tuning (null = normal scroll)
@@ -953,6 +1069,7 @@ export default function World() {
     const ease = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 
     const skillTicked = new Array(SKILLS.length).fill(false); // soft blip as each skill row locks in
+    let skillPulse = 0; // light kick on the figure as each skill row locks in (decays in the tick)
     let ambFrame = 0; // throttles the ambient-pad crossfade updates
     let stepPrevY: number | null = null; // hip-bob tracking for exact footsteps
     let stepPrevVy = 0;
@@ -965,10 +1082,17 @@ export default function World() {
     const handWorld = new THREE.Vector3(); // scratch for projecting the hand to screen
 
     const tick = () => {
-      t += 0.016;
+      // all the smoothing factors below are tuned for a 60Hz frame; dtn rescales
+      // them to the real frame time so a 120Hz display doesn't ease twice as fast
+      const nowFrame = performance.now();
+      const dt = Math.min((nowFrame - lastFrameMs) / 1000, 0.05); // clamp tab-switch gaps
+      lastFrameMs = nowFrame;
+      const dtn = dt * 60; // frames-worth of time at the 60Hz reference
+      const rel = (f: number) => 1 - Math.pow(1 - f, dtn); // fps-correct lerp factor
+      t += dt;
       if (figure) {
         if (!started) started = true;
-        if (started && introT < INTRO_DUR) introT += 0.016;
+        if (started && introT < INTRO_DUR) introT += dt;
         const it = clamp01(introT / INTRO_DUR); // 0..1 intro progress
 
         // figure fades + settles up into view on load
@@ -991,6 +1115,16 @@ export default function World() {
         // hero front-fill: full on the landing frame, gone by the time the walk
         // starts (mirrors heroOut at p≈0.16) so only the first impression changes
         heroFill.intensity = (1 - smooth(0.04, 0.16, p)) * 1.1;
+        // journey rim: keeps the silhouette sculpted through the walk chapter,
+        // plus the skill lock-in pulse so each row landing lights the body
+        skillPulse *= Math.pow(0.93, dtn);
+        // held through the stand-and-present beat (the carousel blooms at p≈0.54)
+        // so the pause between chapters never drops the figure into silhouette
+        journeyRim.intensity = smooth(0.06, 0.18, p) * (1 - smooth(0.62, 0.74, p)) * 1.5 + skillPulse * 1.4;
+        // the stage disc + ring live and die with the figure
+        stageMat.opacity = figFade * 0.9 * showE;
+        stageRingMat.opacity = figFade * showE * (0.2 + 0.08 * Math.sin(t * 1.4));
+        stage.visible = stageRing.visible = figFade > 0.02;
         const grow = 0.9 + 0.1 * showE;
 
         // the catwalk animation drives the body; here we only reveal it (grow +
@@ -999,8 +1133,9 @@ export default function World() {
         figure.position.set(0, (1 - showE) * -0.4, 0);
       }
       glowUniforms.uTime.value = t; // rim-glow pulse
+      gridUniforms.uTime.value = t; // lattice shimmer + data pulse
       if (bodyTime) bodyTime.value = t; // body surface ripple
-      stars.rotation.y += 0.0003;
+      stars.rotation.y += 0.0003 * dtn;
 
       // scroll progress (eased)
       const max = document.documentElement.scrollHeight - window.innerHeight;
@@ -1014,8 +1149,8 @@ export default function World() {
         // then auto-drifts to catch up. the cap is high enough that normal
         // scrolling never reaches it — it only softens an extreme fling so the
         // scene glides instead of teleporting.
-        const cap = 0.022;
-        p += Math.max(-cap, Math.min(cap, (target - p) * 0.2));
+        const cap = 0.022 * dtn;
+        p += Math.max(-cap, Math.min(cap, (target - p) * rel(0.2)));
       }
 
       // scrub the walk-and-turn clip by scroll: clip time = scroll position, eased
@@ -1028,7 +1163,7 @@ export default function World() {
         // the walk + 180° turn completes by p≈0.38, then holds — the rest of the
         // scroll is camera-only (arc around to the face, present, dive into the room)
         const targetTime = clamp01(p / 0.38) * clipDur;
-        animTime += (targetTime - animTime) * 0.12;
+        animTime += (targetTime - animTime) * rel(0.12);
         action.time = animTime;
         mixer.update(0);
         if (hipsBone && hip0) {
@@ -1080,7 +1215,7 @@ export default function World() {
       // the sign-off
       const starFade = 1 - smooth(0.92, 0.98, p);
       sMat.opacity = Math.min(1, 0.65 + m.star * 0.9) * starFade;
-      sMat.size = 2.6 + m.star * 1.6; // pixel-sized (no attenuation)
+      sMat.size = 0.11 + m.star * 0.05; // world-sized (attenuated → near stars bloom, far recede)
       stars.visible = starFade > 0.001;
       bloom.strength = m.bloom;
       lensPass.uniforms.uVignette.value = m.vig;
@@ -1088,8 +1223,8 @@ export default function World() {
 
       const c = sampleCam(p);
       // inertia on the pointer so parallax glides instead of snapping
-      sm.x += (mouse.x - sm.x) * 0.05;
-      sm.y += (mouse.y - sm.y) * 0.05;
+      sm.x += (mouse.x - sm.x) * rel(0.05);
+      sm.y += (mouse.y - sm.y) * rel(0.05);
       // fade the mouse-look parallax OUT in the memory room: there the cubes are
       // click targets, and a camera that drifts with the cursor turns every cube
       // into a moving target you can't aim at. Hold it steady so cubes + their
@@ -1101,7 +1236,7 @@ export default function World() {
       // glides to centre stage as the greeting fades and the walk begins
       const heroOut = clamp01(p / 0.16);
       const targetFrameX = -1.1 * (1 - heroOut);
-      frameX += (targetFrameX - frameX) * 0.1;
+      frameX += (targetFrameX - frameX) * rel(0.1);
       // orbit around the lookAt point (which rises to head height), not the
       // origin — so a small radius brings the camera right up to the head/ear
       camera.position.set(
@@ -1130,15 +1265,18 @@ export default function World() {
         gazePt.y = THREE.MathUtils.lerp(gazePt.y, camera.position.y - 10, e); // level out the gaze
         camera.lookAt(gazePt);
       }
-      // the dawn dome fades in as the rise begins, and rides with the camera
+      // the dawn dome fades in as the rise begins, and rides with the camera.
+      // once the rise completes the horizon band eases down to a dusk line so
+      // the sign-off owns the frame (the mood here is "clean dark void")
       skyUniforms.uFade.value = smooth(0.935, 0.985, p);
+      skyUniforms.uBand.value = 1 - smooth(0.985, 1.0, p) * 0.62;
       sky.position.copy(camera.position);
 
       // camera focus: capture the scroll-driven pose, then ease toward the
       // clicked cube (position lerp + orientation slerp). On release it eases
       // straight back to wherever the scroll camera now sits.
       const focusTarget = focus.active ? 1 : 0;
-      focus.blend += (focusTarget - focus.blend) * 0.06;
+      focus.blend += (focusTarget - focus.blend) * rel(0.06);
       if (focus.blend > 0.001) {
         // ease-in-out on the blend so the glide accelerates then settles softly
         const e = focus.blend * focus.blend * (3 - 2 * focus.blend);
@@ -1209,7 +1347,7 @@ export default function World() {
       camera.updateMatrixWorld();
       const reveal = gridUniforms.uReveal.value;
       // the glowing glass cubes fade in/out with the room reveal
-      occFaceMat.opacity = 0.13 * reveal;
+      occUniforms.uReveal.value = reveal;
       occEdgeMat.opacity = 0.95 * reveal;
       occGroup.visible = reveal > 0.01;
 
@@ -1323,10 +1461,15 @@ export default function World() {
             const x = (1 - rin) * 46 + skOut * 64; // slide in, then retreat as the dive nears
             r.style.opacity = vis.toFixed(3);
             r.style.transform = `translate3d(${x.toFixed(1)}px,0,0)`;
-            r.style.clipPath = `inset(0 ${((1 - rin) * 100).toFixed(1)}% 0 0)`; // reveal left→right (works L/R aligned)
+            // wipe from the reading edge: the sheet is right-aligned on ≥sm, so
+            // reveal right→left there (otherwise the row's bottom border pokes in
+            // from the empty left side long before any text shows)
+            const wipe = ((1 - rin) * 100).toFixed(1);
+            r.style.clipPath = stageW >= 640 ? `inset(0 0 0 ${wipe}%)` : `inset(0 ${wipe}% 0 0)`;
             // a soft blip the moment each row locks in (reset when scrolled back up)
             if (rin > 0.6 && !skillTicked[i]) {
               skillTicked[i] = true;
+              skillPulse = 1; // kick a light pulse across the figure
               sfx.play("tick");
             } else if (rin < 0.1 && skillTicked[i]) {
               skillTicked[i] = false;
@@ -1379,7 +1522,7 @@ export default function World() {
         prevCamInit = true;
         const target = inRoom ? inst : 0;
         // ease up quickly, glide down slowly so the wind tapers off naturally
-        travelSpeed += (target - travelSpeed) * (target > travelSpeed ? 0.3 : 0.06);
+        travelSpeed += (target - travelSpeed) * rel(target > travelSpeed ? 0.3 : 0.06);
         if (inRoom) {
           sfx.ensureMotion();
           sfx.setMotion(travelSpeed);
@@ -1405,6 +1548,11 @@ export default function World() {
       starGeo.dispose();
       grid.geometry.dispose();
       gridMat.dispose();
+      stage.geometry.dispose();
+      stageMat.dispose();
+      stageAlpha.dispose();
+      stageRing.geometry.dispose();
+      stageRingMat.dispose();
       occBoxGeo.dispose();
       occEdgeGeo.dispose();
       occFaceMat.dispose();
@@ -1432,8 +1580,12 @@ export default function World() {
           is fixed/pinned so the scene holds while the body animates with scroll */}
       <div style={{ height: "1350vh" }} aria-hidden />
 
-      {/* fixed stage */}
-      <div className="fixed inset-0 select-none overflow-hidden bg-bg">
+      {/* fixed stage — graded blue-black atmosphere behind the (alpha) renderer,
+          focused near the figure, so the frame is never bare #000 emptiness */}
+      <div
+        className="fixed inset-0 select-none overflow-hidden"
+        style={{ background: "radial-gradient(130% 115% at 66% 38%, #0D1420 0%, #080D16 48%, #050608 100%)" }}
+      >
         <div ref={mountRef} className="absolute inset-0 h-full w-full" />
 
         {/* cinematic vignette */}
@@ -1486,7 +1638,7 @@ export default function World() {
 
           {/* left: character identity + skill sheet (outer centres, inner is the
               group the tick slides off-screen on scroll) */}
-          <div className="absolute left-8 top-1/2 max-w-md -translate-y-1/2 sm:left-16 sm:max-w-xl">
+          <div className="absolute left-8 top-1/2 max-w-md -translate-y-1/2 sm:left-16 sm:max-w-3xl">
            <div ref={hudPanelRef} className="will-change-transform" style={{ opacity: 1 }}>
             <motion.div initial="hidden" animate={heroReady ? "visible" : "hidden"} variants={hudContainer}>
               <motion.div variants={hudItem} className="font-mono text-[10px] uppercase tracking-[0.45em] text-accent/70">
@@ -1494,14 +1646,14 @@ export default function World() {
               </motion.div>
               <motion.h1
                 variants={hudItem}
-                className="mt-2 font-display text-6xl font-extrabold uppercase leading-none tracking-tight text-ink [text-shadow:0_4px_30px_rgba(0,0,0,0.85)] sm:text-7xl"
+                className="mt-2 font-display text-[clamp(3.1rem,8.5vw,7.5rem)] font-extrabold uppercase leading-[0.95] tracking-tight text-ink [text-shadow:0_4px_30px_rgba(0,0,0,0.85)]"
               >
                 <ScrambleText text={content.hero.name} active={heroReady} speed={70} onReveal={() => sfx.play("tick")} />
               </motion.h1>
               {/* accent underline draws in beneath the name */}
               <motion.div
                 variants={hudLine}
-                className="mt-3 h-px w-44 origin-left bg-gradient-to-r from-accent to-transparent"
+                className="mt-3 h-px w-56 origin-left bg-gradient-to-r from-accent via-accent/60 to-transparent"
               />
               <motion.div variants={hudItem} className="mt-3 font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
                 <span className="text-accent">CLASS</span> · <ScrambleText text={t(content.hero.role)} active={heroReady} speed={20} />
@@ -1646,7 +1798,7 @@ export default function World() {
           {/* centred cyan glow behind the wall */}
           <div
             className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[58vh] w-[58vh] -translate-x-1/2 -translate-y-1/2 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(45,230,230,0.14), rgba(45,230,230,0.04) 40%, transparent 66%)" }}
+            style={{ background: "radial-gradient(circle, rgba(14,111,128,0.22), rgba(180,74,255,0.05) 46%, transparent 68%)" }}
           />
           <FinaleWall active={finaleActive} />
         </div>
@@ -1708,6 +1860,10 @@ function ScrollRail() {
   let active = 0;
   for (let i = 0; i < RAIL_BEATS.length; i++) if (p >= RAIL_BEATS[i].p - 0.04) active = i;
 
+  // the skills sheet owns the right edge through the walk chapter — keep the
+  // beat labels hover-only there so they never collide with its rows
+  const labelsHidden = p > 0.14 && p < 0.54;
+
   return (
     <div
       className="pointer-events-none absolute right-5 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center transition-opacity duration-500 sm:right-9"
@@ -1743,7 +1899,7 @@ function ScrollRail() {
                 so the whole rail reads as a jump menu */}
             <span
               className={`absolute right-4 top-1/2 -translate-y-1/2 whitespace-nowrap text-right font-mono text-[9px] uppercase tracking-[0.3em] transition-all duration-300 group-hover:text-accent group-hover:opacity-100 ${
-                i === active ? "text-accent opacity-100" : "text-muted opacity-0"
+                i === active && !labelsHidden ? "text-accent opacity-100" : "text-muted opacity-0"
               }`}
             >
               {b.label}
@@ -1814,7 +1970,7 @@ function FinaleWall({ active }: { active: boolean }) {
         className="pointer-events-none absolute -inset-x-10 -inset-y-12 sm:-inset-x-20 sm:-inset-y-16"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(45,230,230,0.30) 1px, transparent 1px), linear-gradient(90deg, rgba(45,230,230,0.30) 1px, transparent 1px)",
+            "linear-gradient(rgba(45,230,230,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(45,230,230,0.22) 1px, transparent 1px)",
           backgroundSize: "48px 48px",
           backgroundPosition: "center",
           maskImage: "radial-gradient(115% 110% at 50% 50%, #000 28%, transparent 78%)",
@@ -1824,7 +1980,7 @@ function FinaleWall({ active }: { active: boolean }) {
       {/* additive cyan wash so the wall glows like the lattice */}
       <div
         className="pointer-events-none absolute -inset-x-10 -inset-y-12 mix-blend-screen sm:-inset-x-20 sm:-inset-y-16"
-        style={{ background: "radial-gradient(55% 50% at 50% 50%, rgba(45,230,230,0.12), transparent 72%)" }}
+        style={{ background: "radial-gradient(55% 50% at 50% 50%, rgba(14,111,128,0.2), rgba(180,74,255,0.04) 58%, transparent 74%)" }}
       />
       {/* frosted scrim directly behind the words — see-through (the wireframe
           wall still reads) but lightly blurred so the type stays legible, as if

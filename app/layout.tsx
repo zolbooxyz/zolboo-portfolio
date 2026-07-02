@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Syne, Onest, JetBrains_Mono } from "next/font/google";
+import { Syne, Onest, JetBrains_Mono, Unbounded } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/LanguageContext";
 import Loader from "@/components/Loader";
@@ -15,13 +15,22 @@ const logo = Syne({
   display: "swap",
 });
 
-// Onest drives everything else — headings + body (Latin + Cyrillic)
+// Unbounded is the DISPLAY voice — hero name, chapter headings, project titles,
+// finale. Full Cyrillic coverage, real personality at poster sizes.
+const displayFont = Unbounded({
+  subsets: ["latin", "cyrillic"],
+  weight: ["600", "700", "800"],
+  variable: "--font-unbounded",
+  display: "swap",
+});
+
+// Onest is the READING voice — body copy, descriptions (Latin + Cyrillic)
 const sans = Onest({
   subsets: ["latin", "cyrillic"],
   // 800 included so `font-extrabold` headings render as true Onest ExtraBold
   // instead of a browser-synthesised faux-bold (which mangles Cyrillic glyphs)
   weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-display",
+  variable: "--font-sans",
   display: "swap",
 });
 
@@ -124,7 +133,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="mn" className={`${logo.variable} ${sans.variable} ${mono.variable}`}>
+    <html lang="mn" className={`${logo.variable} ${displayFont.variable} ${sans.variable} ${mono.variable}`}>
       <body className="grain bg-bg text-ink antialiased">
         <script
           type="application/ld+json"

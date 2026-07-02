@@ -67,11 +67,10 @@ export default function HudOverlay() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[14] transition-none" style={{ opacity: chromeDim }}>
-      {/* scanlines */}
-      <div className="hud-scanlines absolute inset-0 opacity-60" />
+      {/* scanlines — kept faint so the chrome never fights the content */}
+      <div className="hud-scanlines absolute inset-0 opacity-40" />
 
-      {/* thin targeting frame + corner brackets */}
-      <div className="absolute inset-3 border border-accent/[0.06]" />
+      {/* corner brackets only (the full inner frame was one framing device too many) */}
       <Bracket className="left-3 top-3 border-l border-t" />
       <Bracket className="right-3 top-3 border-r border-t" />
       <Bracket className="bottom-3 left-3 border-b border-l" />

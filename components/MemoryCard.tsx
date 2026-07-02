@@ -9,7 +9,7 @@ import type { Memory } from "@/lib/memories";
 
 const cardItem = {
   hidden: { opacity: 0, y: 12, filter: "blur(5px)" },
-  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
 };
 
 export default function MemoryCard({ memory, onClose }: { memory: Memory; onClose: () => void }) {
@@ -42,7 +42,7 @@ export default function MemoryCard({ memory, onClose }: { memory: Memory; onClos
       <motion.div
         initial={{ opacity: 0, y: 16, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
         className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/15 bg-white/[0.015] p-8 shadow-[0_20px_60px_-22px_rgba(0,0,0,0.6),0_0_50px_-18px_rgba(45,230,230,0.3),inset_0_1px_0_0_rgba(255,255,255,0.12)] backdrop-blur-md backdrop-saturate-150"
       >
         {/* frosted-glass sheen + accent top edge */}

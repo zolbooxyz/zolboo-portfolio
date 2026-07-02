@@ -238,7 +238,7 @@ export default function Loader() {
                 className="relative block select-none font-logo text-4xl font-extrabold italic lowercase tracking-tight text-ink [text-shadow:0_0_44px_rgba(255,255,255,0.14)] sm:text-7xl"
                 initial={{ clipPath: "inset(0 50% 0 50%)", opacity: 0 }}
                 animate={assembled ? { clipPath: "inset(0 0% 0 0%)", opacity: 1 } : {}}
-                transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               >
                 zolboo
                 <span className="text-accent [text-shadow:0_0_28px_rgba(45,230,230,0.5)]">.xyz</span>

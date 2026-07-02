@@ -3,8 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --bg: #07090d;
+  --bg: #0a0e14;
   --accent: #2de6e6;
+  --iris: #b44aff;
+  --halation: #9bfbf3;
 }
 
 * {
@@ -30,14 +32,14 @@ html.lenis body {
 
 body {
   background-color: var(--bg);
-  color: #e8eef5;
-  font-family: var(--font-display), sans-serif;
+  color: #edf2f7;
+  font-family: var(--font-sans), sans-serif;
   overflow-x: hidden;
 }
 
-/* Selection */
+/* Selection — iris, the site's material colour (a small signature detail) */
 ::selection {
-  background: rgba(45, 230, 230, 0.25);
+  background: rgba(180, 74, 255, 0.3);
   color: #ffffff;
 }
 
@@ -57,12 +59,12 @@ body {
   width: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #07090d;
+  background: #0a0e14;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1a2530;
+  background: #1c2634;
   border-radius: 8px;
-  border: 2px solid #07090d;
+  border: 2px solid #0a0e14;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #2a3a48;
@@ -227,20 +229,20 @@ html.custom-cursor * {
   .loader-cube-face { animation: none !important; opacity: 1; }
 }
 
-/* Neon text accent */
+/* Neon text accent — tiered: hot halation core inside a wider accent falloff */
 .text-glow {
-  text-shadow: 0 0 24px rgba(45, 230, 230, 0.55);
+  text-shadow: 0 0 10px rgba(155, 251, 243, 0.5), 0 0 28px rgba(45, 230, 230, 0.45);
 }
 
 /* Gradient text */
 .text-grad {
-  background: linear-gradient(120deg, #ffffff 0%, #b9f9f7 55%, #2de6e6 100%);
+  background: linear-gradient(120deg, #ffffff 0%, #9bfbf3 55%, #2de6e6 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-/* Animated underline link */
+/* Animated underline link — cyan into iris, the palette's material gradient */
 .link-underline {
   position: relative;
 }
@@ -251,8 +253,8 @@ html.custom-cursor * {
   bottom: -3px;
   height: 1px;
   width: 0;
-  background: #2de6e6;
-  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  background: linear-gradient(90deg, #2de6e6, #b44aff);
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .link-underline:hover::after {
   width: 100%;

@@ -87,7 +87,7 @@ export default function MemoryForm({ open, onClose, onSubmit }: Props) {
         onSubmit={submit}
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
-        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
         className="relative max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/15 bg-white/[0.02] p-8 shadow-[0_-20px_80px_-20px_rgba(0,0,0,0.8),0_0_60px_-18px_rgba(45,230,230,0.35),inset_0_1px_0_0_rgba(255,255,255,0.12)] backdrop-blur-md backdrop-saturate-150 sm:rounded-3xl sm:p-10"
       >
         {/* grab handle — signals the slide-up sheet */}

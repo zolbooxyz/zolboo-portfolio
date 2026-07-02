@@ -11,7 +11,7 @@ export type Project = (typeof content.projects.items)[number];
 
 const item = {
   hidden: { opacity: 0, y: 12, filter: "blur(5px)" },
-  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
 };
 
 /** Full-screen detail for a single project — opens when its carousel card is tapped. */
@@ -50,7 +50,7 @@ export default function ProjectDetail({ project, onClose }: { project: Project; 
       <motion.div
         initial={{ opacity: 0, y: 16, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
         className="relative max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/15 bg-surface/80 shadow-[0_20px_60px_-22px_rgba(0,0,0,0.7),0_0_50px_-18px_rgba(45,230,230,0.3)] backdrop-blur-xl"
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
@@ -75,7 +75,7 @@ export default function ProjectDetail({ project, onClose }: { project: Project; 
             <span>{t(project.category)}</span>
             <span className="text-muted/70">{project.year}</span>
           </motion.div>
-          <motion.h2 variants={item} className="mt-2 font-display text-3xl font-extrabold tracking-tight text-ink">
+          <motion.h2 variants={item} className="mt-2 font-display text-2xl font-extrabold leading-tight tracking-tight text-ink sm:text-3xl">
             {t(project.title)}
           </motion.h2>
           <motion.div variants={item} className="mt-3 h-px w-12 bg-gradient-to-r from-accent to-transparent" />

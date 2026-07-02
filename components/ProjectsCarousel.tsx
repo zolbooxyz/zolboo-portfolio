@@ -146,7 +146,7 @@ export default function ProjectsCarousel({
           <span className="h-1 w-1 animate-pulseGlow rounded-full bg-accent" />
           {t(content.projects.label)}
         </div>
-        <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-ink sm:text-[2rem]">
+        <h2 className="mt-2 font-display text-xl font-extrabold tracking-tight text-ink sm:text-[1.75rem]">
           {t(content.projects.heading)}
         </h2>
       </div>
@@ -198,10 +198,10 @@ export default function ProjectsCarousel({
                     <span>{t(proj.category)}</span>
                     <span className="text-muted/70">{proj.year}</span>
                   </div>
-                  <div className="mt-2 font-display text-lg font-bold leading-tight text-ink sm:text-xl">
+                  <div className="mt-2 font-display text-base font-bold leading-snug text-ink sm:text-lg">
                     {t(proj.title)}
                   </div>
-                  <p className="mt-2 line-clamp-2 font-mono text-[11px] leading-relaxed text-muted">
+                  <p className="mt-2 line-clamp-2 font-body text-[13px] leading-relaxed text-muted">
                     {t(proj.desc)}
                   </p>
                   <div className="mt-3 flex items-center justify-between">
