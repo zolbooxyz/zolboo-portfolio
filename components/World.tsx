@@ -724,45 +724,6 @@ export default function World() {
     journeyRim.position.set(4, 7, -7);
     scene.add(journeyRim);
 
-    // CHARACTER-SELECT STAGE — a glossy dark disc + accent ring anchoring the
-    // figure to a floor (kills the "floating in a void" read). The disc catches
-    // the env-map highlights; a radial alpha fade melts it into the dark.
-    const stageAlphaCanvas = document.createElement("canvas");
-    stageAlphaCanvas.width = stageAlphaCanvas.height = 256;
-    const sctx = stageAlphaCanvas.getContext("2d")!;
-    const sgrad = sctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-    sgrad.addColorStop(0, "#ffffff");
-    sgrad.addColorStop(0.55, "#8c8c8c");
-    sgrad.addColorStop(1, "#000000");
-    sctx.fillStyle = sgrad;
-    sctx.fillRect(0, 0, 256, 256);
-    const stageAlpha = new THREE.CanvasTexture(stageAlphaCanvas);
-    const stageMat = new THREE.MeshStandardMaterial({
-      color: 0x0b1017,
-      metalness: 0.9,
-      roughness: 0.42, // blurred env reflection → polished, not mirror
-      envMapIntensity: 1.15,
-      transparent: true,
-      opacity: 0,
-      alphaMap: stageAlpha,
-      depthWrite: false,
-    });
-    const stage = new THREE.Mesh(new THREE.CircleGeometry(3.6, 64), stageMat);
-    stage.rotation.x = -Math.PI / 2;
-    stage.position.y = FEET_Y - 0.01;
-    const stageRingMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(palette.accent),
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const stageRing = new THREE.Mesh(new THREE.RingGeometry(2.42, 2.5, 96), stageRingMat);
-    stageRing.rotation.x = -Math.PI / 2;
-    stageRing.position.y = FEET_Y + 0.01;
-    scene.add(stage, stageRing);
-
     // the figure, rendered as a polished chrome body that reflects the env map
     let figure: THREE.Group | null = null;
     const metalMat = new THREE.MeshPhysicalMaterial({
@@ -1121,10 +1082,6 @@ export default function World() {
         // held through the stand-and-present beat (the carousel blooms at p≈0.54)
         // so the pause between chapters never drops the figure into silhouette
         journeyRim.intensity = smooth(0.06, 0.18, p) * (1 - smooth(0.62, 0.74, p)) * 1.5 + skillPulse * 1.4;
-        // the stage disc + ring live and die with the figure
-        stageMat.opacity = figFade * 0.9 * showE;
-        stageRingMat.opacity = figFade * showE * (0.2 + 0.08 * Math.sin(t * 1.4));
-        stage.visible = stageRing.visible = figFade > 0.02;
         const grow = 0.9 + 0.1 * showE;
 
         // the catwalk animation drives the body; here we only reveal it (grow +
@@ -1548,11 +1505,6 @@ export default function World() {
       starGeo.dispose();
       grid.geometry.dispose();
       gridMat.dispose();
-      stage.geometry.dispose();
-      stageMat.dispose();
-      stageAlpha.dispose();
-      stageRing.geometry.dispose();
-      stageRingMat.dispose();
       occBoxGeo.dispose();
       occEdgeGeo.dispose();
       occFaceMat.dispose();
